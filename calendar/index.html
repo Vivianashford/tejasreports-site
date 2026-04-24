@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Compliance — Swan Energy / NJect LLC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B3A5C;--accent:#D4A017;--red:#C0392B;--green:#27AE60;--orange:#E67E22;--bg:#F4F5F7;--card:#FFF;--border:#E2E5EA;--text:#1E293B;--muted:#6B7280;--radius:8px}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+
+/* ── HEADER ── */
+header{background:var(--navy);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+header h1{font-size:1.1rem;font-weight:700;letter-spacing:.3px}
+.pills{display:flex;gap:6px}
+.pill{padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:700}
+.pill.r{background:var(--red);color:#fff}
+.pill.g{background:var(--green);color:#fff}
+
+/* ── TABS ── */
+nav{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
+nav a{padding:11px 18px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;text-decoration:none}
+nav a:hover{color:var(--navy)}
+nav a.on{color:var(--navy);border-bottom-color:var(--accent)}
+
+/* ── LAYOUT ── */
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.panel{display:none}
+.panel.on{display:block}
+
+/* ── CALENDAR ── */
+.cal-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.cal-bar button{background:var(--navy);color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:.82rem}
+.cal-bar button:hover{opacity:.85}
+.cal-bar .mo{font-size:1.15rem;font-weight:700;color:var(--navy);min-width:170px;text-align:center}
+.cal-bar .spacer{flex:1}
+.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.cg .dh{background:var(--navy);color:#fff;text-align:center;padding:7px 0;font-size:.72rem;font-weight:700;text-transform:uppercase}
+.cg .dy{background:var(--card);min-height:85px;padding:3px 5px;font-size:.78rem;cursor:pointer;position:relative;transition:background .1s}
+.cg .dy:hover{background:#F0F4FF}
+.cg .dy.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cg .dy.out{background:#FAFBFC;color:#C8CBD0}
+.cg .dy .dn{font-weight:700;font-size:.8rem;margin-bottom:2px}
+.ev{font-size:.65rem;padding:1px 4px;margin-bottom:1px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;cursor:pointer}
+.ev.filing{background:#DBEAFE;color:#1E40AF}
+.ev.training{background:#EDE9FE;color:#6D28D9}
+.ev.procedure{background:#D1FAE5;color:#065F46}
+.ev.other{background:#FEF3C7;color:#92400E}
+.ev.done{opacity:.4;text-decoration:line-through}
+
+/* ── SIDE PANEL (day detail) ── */
+.day-detail{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:12px;display:none}
+.day-detail.open{display:block}
+.day-detail h3{font-size:.95rem;color:var(--navy);margin-bottom:10px}
+.dd-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.dd-item:last-child{border-bottom:none}
+.dd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dd-dot.filing{background:#3B82F6}
+.dd-dot.training{background:#8B5CF6}
+.dd-dot.procedure{background:#10B981}
+.dd-dot.other{background:#F59E0B}
+.dd-info{flex:1;font-size:.85rem}
+.dd-info .nm{font-weight:600}
+.dd-info .desc{color:var(--muted);font-size:.78rem}
+
+/* ── TABLES ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.card-top{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.card-top h2{font-size:.95rem;color:var(--navy)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#F1F5F9;padding:8px 10px;text-align:left;font-weight:600;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.3px}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover{background:#F8FAFC}
+.sb{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700}
+.sb.gap{background:#FEE2E2;color:var(--red)}
+.sb.ok{background:#DCFCE7;color:var(--green)}
+.sb.pend{background:#FEF3C7;color:var(--orange)}
+
+/* ── BUTTONS ── */
+.btn{padding:5px 12px;border-radius:5px;font-size:.75rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-g{background:var(--green);color:#fff}
+.btn-g:hover{background:#219653}
+.btn-n{background:var(--navy);color:#fff}
+.btn-n:hover{opacity:.85}
+.btn-o{background:var(--card);color:var(--navy);border:1px solid var(--navy)}
+.btn-o:hover{background:var(--navy);color:#fff}
+.btn-r{background:var(--red);color:#fff}
+.btn-r:hover{background:#A93226}
+
+/* ── SOP LINK ── */
+.sop-link{color:#2563EB;text-decoration:none;font-size:.78rem;font-weight:600}
+.sop-link:hover{text-decoration:underline}
+
+/* ── LINKS PAGE ── */
+.lg{margin-bottom:16px}
+.lg h3{font-size:.88rem;color:var(--navy);padding-bottom:4px;border-bottom:2px solid var(--accent);margin-bottom:6px}
+.lg a{display:block;padding:4px 0;color:#2563EB;text-decoration:none;font-size:.82rem}
+.lg a:hover{text-decoration:underline}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
+.modal-h{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-h h3{font-size:.95rem;color:var(--navy)}
+.modal-x{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)}
+.modal-b{padding:16px}
+.modal-b label{display:block;font-weight:600;font-size:.8rem;margin-bottom:3px}
+.modal-b input,.modal-b select,.modal-b textarea{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:.85rem;margin-bottom:10px;font-family:inherit}
+.modal-b textarea{min-height:60px;resize:vertical}
+.modal-f{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+
+@media(max-width:768px){
+  .cg .dy{min-height:55px;padding:2px 3px}
+  .ev{font-size:.58rem}
+  header h1{font-size:.95rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Safety &amp; Compliance</h1>
+  <div class="pills">
+    <span class="pill r" id="pill-gaps">0 Gaps</span>
+    <span class="pill g" id="pill-ok">0 Done</span>
+  </div>
+</header>
+
+<nav id="tabs">
+  <a class="on" data-t="calendar">Calendar</a>
+  <a data-t="filings">Filings</a>
+  <a data-t="training">Training</a>
+  <a data-t="procedures">Procedures</a>
+  <a data-t="links">Links</a>
+</nav>
+
+<div class="wrap">
+
+<!-- ═══ CALENDAR ═══ -->
+<div class="panel on" id="p-calendar">
+  <div class="cal-bar">
+    <button onclick="mv(-1)">&larr;</button>
+    <div class="mo" id="mo-label"></div>
+    <button onclick="mv(1)">&rarr;</button>
+    <div class="spacer"></div>
+    <button onclick="goNow()">Today</button>
+    <button onclick="openAdd()">+ Add</button>
+  </div>
+  <div class="cg" id="cg"></div>
+  <div class="day-detail" id="dd"></div>
+</div>
+
+<!-- ═══ FILINGS ═══ -->
+<div class="panel" id="p-filings">
+  <div class="card">
+    <div class="card-top"><h2>Regulatory Filings</h2><button class="btn btn-n" onclick="openAddFiling()">+ Add</button></div>
+    <div style="overflow-x:auto"><table id="ftbl"><thead><tr><th>Filing</th><th>Deadline</th><th>Recurrence</th><th>Method</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══ TRAINING ═══ -->
+<div class="panel" id="p-training">
+  <div class="card">
+    <div class="card-top"><h2>Training Requirements</h2><button class="btn btn-n" onclick="openAddTraining()">+ Add</button></div>
+    <div style="overflow-x:auto"><table id="ttbl"><thead><tr><th>Training</th><th>Who</th><th>Recurrence</th><th>Status</th><th>Last Completed</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══ PROCEDURES ═══ -->
+<div class="panel" id="p-procedures">
+  <div class="card">
+    <div class="card-top"><h2>Procedures &amp; SOPs</h2><button class="btn btn-n" onclick="openAddProc()">+ Add</button></div>
+    <div style="overflow-x:auto"><table id="ptbl"><thead><tr><th>Procedure</th><th>Frequency</th><th>SOP Link</th><th>Status</th><th>Last Performed</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══ LINKS ═══ -->
+<div class="panel" id="p-links"><div id="links-c"></div></div>
+
+</div><!-- /wrap -->
+
+<!-- ═══ MODAL ═══ -->
+<div class="overlay" id="ov">
+  <div class="modal">
+    <div class="modal-h"><h3 id="m-title"></h3><button class="modal-x" onclick="closeM()">&times;</button></div>
+    <div class="modal-b" id="m-body"></div>
+    <div class="modal-f" id="m-foot"></div>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════
+//  STORAGE
+// ═════════════════════════════════════
+const K="swan_safety_v2";
+const REC_LABELS={monthly:"Monthly",quarterly:"Quarterly",semiannual:"Semi-Annual",yearly:"Yearly","2year":"Every 2 Years","5year":"Every 5 Years",asneeded:"As Needed",weekly:"Weekly",once:"One-Time"};
+
+const DEFAULTS={
+  filings:[
+    {id:"f1",name:"P-5 / P-50",deadline:"Before Jan 1",rec:"yearly",recDay:31,recMonths:[11],desc:"Organization Report",method:"Mail",status:"pending",doneDate:""},
+    {id:"f2",name:"P-18s",deadline:"15th of each month",rec:"monthly",recDay:15,recMonths:[],desc:"Monthly Production Report",method:"Mail / SONRIS",status:"pending",doneDate:""},
+    {id:"f3",name:"Weather Attestation",deadline:"Before Dec 1",rec:"yearly",recDay:1,recMonths:[11],desc:"Annual weather-preparedness certification",method:"Mail / Email",status:"pending",doneDate:""},
+    {id:"f4",name:"WH-3s",deadline:"As needed",rec:"asneeded",recDay:-1,recMonths:[],desc:"Workover/Completion Reports",method:"Mail",status:"pending",doneDate:""},
+    {id:"f5",name:"Quarterly Reports",deadline:"Jan/Apr/Jul/Oct 30",rec:"quarterly",recDay:30,recMonths:[0,3,6,9],desc:"Quarterly production data",method:"Mail",status:"pending",doneDate:""},
+    {id:"f6",name:"H-5s",deadline:"Every 5 years",rec:"5year",recDay:-1,recMonths:[],desc:"Mechanical Integrity Test",method:"Mail / SONRIS",status:"pending",doneDate:""},
+    {id:"f7",name:"H-10s",deadline:"Before Jan 1",rec:"yearly",recDay:31,recMonths:[11],desc:"Annual Disposal/Injection Well Report",method:"Online",status:"pending",doneDate:""},
+    {id:"f8",name:"Pit Permits",deadline:"Every 2 years",rec:"2year",recDay:-1,recMonths:[],desc:"E&P waste pit permits + yearly inspections",method:"Mail",status:"pending",doneDate:""},
+    {id:"f9",name:"CI-D / CI-X",deadline:"March & September",rec:"semiannual",recDay:15,recMonths:[2,8],desc:"Injection well semi-annual reports",method:"Online",status:"pending",doneDate:""},
+  ],
+  training:[
+    {id:"t1",name:"New Employee Orientation",who:"All new hires",rec:"asneeded",status:"ok",last:"",note:"SafeLand / RigPass based"},
+    {id:"t2",name:"Employee Right to Know",who:"All employees",rec:"yearly",status:"ok",last:"",note:"Hazard Communication"},
+    {id:"t3",name:"First Aid / CPR",who:"Selected ops & office",rec:"yearly",status:"gap",last:"",note:"NO one certified"},
+    {id:"t4",name:"H2S Awareness",who:"Selected ops & office",rec:"yearly",status:"gap",last:"",note:"NO one trained"},
+    {id:"t5",name:"Respirator Protection",who:"Selected ops & office",rec:"yearly",status:"gap",last:"",note:"NO one fit-tested"},
+    {id:"t6",name:"Lock Out / Tag Out",who:"Selected ops employees",rec:"yearly",status:"gap",last:"",note:"NO one trained"},
+    {id:"t7",name:"PPE Training",who:"All employees",rec:"yearly",status:"ok",last:"",note:""},
+    {id:"t8",name:"Proper Lifting",who:"All employees",rec:"yearly",status:"ok",last:"",note:""},
+  ],
+  procedures:[
+    {id:"p1",name:"H2S Monitor Testing",freq:"Monthly",rec:"monthly",recDay:1,sop:"",status:"ok",last:""},
+    {id:"p2",name:"Safety Meetings",freq:"Monthly",rec:"monthly",recDay:1,sop:"",status:"ok",last:""},
+    {id:"p3",name:"Safety Audits",freq:"Monthly",rec:"monthly",recDay:1,sop:"",status:"gap",last:""},
+    {id:"p4",name:"Walk-Through Checklist",freq:"Weekly",rec:"weekly",recDay:-1,sop:"",status:"gap",last:""},
+    {id:"p5",name:"Random Drug Screens",freq:"Quarterly",rec:"quarterly",recDay:1,recMonths:[0,3,6,9],sop:"",status:"ok",last:""},
+    {id:"p6",name:"Septic System Service",freq:"3x/year",rec:"quarterly",recDay:15,recMonths:[1,5,9],sop:"",status:"ok",last:""},
+    {id:"p7",name:"Fire Extinguisher Check",freq:"Monthly",rec:"monthly",recDay:1,sop:"",status:"ok",last:""},
+    {id:"p8",name:"OSHA 300 Log (JJ Safety)",freq:"Quarterly",rec:"quarterly",recDay:15,recMonths:[0,3,6,9],sop:"",status:"ok",last:""},
+  ],
+  events:[]
+};
+
+function load(){try{const r=localStorage.getItem(K);if(r){const d=JSON.parse(r);return{...JSON.parse(JSON.stringify(DEFAULTS)),...d}}}catch(e){}return JSON.parse(JSON.stringify(DEFAULTS))}
+function save(){localStorage.setItem(K,JSON.stringify(D));badges()}
+let D=load();
+
+// ═════════════════════════════════════
+//  TABS
+// ═════════════════════════════════════
+document.querySelectorAll('nav a').forEach(a=>{
+  a.addEventListener('click',()=>{
+    document.querySelectorAll('nav a').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    a.classList.add('on');
+    document.getElementById('p-'+a.dataset.t).classList.add('on');
+  });
+});
+
+// ═════════════════════════════════════
+//  MODAL
+// ═════════════════════════════════════
+function openM(t,b,f){document.getElementById('m-title').textContent=t;document.getElementById('m-body').innerHTML=b;document.getElementById('m-foot').innerHTML=f;document.getElementById('ov').classList.add('open')}
+function closeM(){document.getElementById('ov').classList.remove('open')}
+
+// ═════════════════════════════════════
+//  RECURRENCE SELECT HTML
+// ═════════════════════════════════════
+function recOpts(sel){return Object.entries(REC_LABELS).map(([k,v])=>`<option value="${k}"${k===sel?' selected':''}>${v}</option>`).join('')}
+
+// ═════════════════════════════════════
+//  CALENDAR
+// ═════════════════════════════════════
+const NOW=new Date();
+let cY=NOW.getFullYear(),cM=NOW.getMonth();
+
+function mv(d){cM+=d;if(cM>11){cM=0;cY++}if(cM<0){cM=11;cY--}render()}
+function goNow(){cY=NOW.getFullYear();cM=NOW.getMonth();render()}
+
+function getEvents(y,m){
+  const ev=[];
+  // Filings
+  D.filings.forEach(f=>{
+    if(f.rec==='monthly'&&f.recDay>0) ev.push({day:Math.min(f.recDay,new Date(y,m+1,0).getDate()),label:f.name,type:'filing',done:false,src:f});
+    if(f.rec==='yearly'&&f.recMonths&&f.recMonths.includes(m)) ev.push({day:Math.min(f.recDay,new Date(y,m+1,0).getDate()),label:f.name,type:'filing',done:false,src:f});
+    if(f.rec==='quarterly'&&f.recMonths&&f.recMonths.includes(m)) ev.push({day:Math.min(f.recDay,new Date(y,m+1,0).getDate()),label:f.name,type:'filing',done:false,src:f});
+    if(f.rec==='semiannual'&&f.recMonths&&f.recMonths.includes(m)) ev.push({day:Math.min(f.recDay,new Date(y,m+1,0).getDate()),label:f.name,type:'filing',done:false,src:f});
+  });
+  // Training (yearly = show in month of last completion anniversary, or Jan if never done)
+  D.training.forEach(t=>{
+    if(t.rec==='yearly'){
+      let showM=0;
+      if(t.last){try{showM=new Date(t.last).getMonth()}catch(e){}}
+      if(m===showM) ev.push({day:1,label:t.name,type:'training',done:t.status==='ok',src:t});
+    }
+    if(t.rec==='monthly') ev.push({day:1,label:t.name,type:'training',done:t.status==='ok',src:t});
+    if(t.rec==='quarterly'&&[0,3,6,9].includes(m)) ev.push({day:1,label:t.name,type:'training',done:t.status==='ok',src:t});
+  });
+  // Procedures
+  D.procedures.forEach(p=>{
+    if(p.rec==='weekly'){[7,14,21,28].forEach(d=>ev.push({day:d,label:p.name,type:'procedure',done:false,src:p}))}
+    if(p.rec==='monthly'&&p.recDay>0) ev.push({day:Math.min(p.recDay||1,28),label:p.name,type:'procedure',done:false,src:p});
+    if(p.rec==='quarterly'){const ms=p.recMonths||[0,3,6,9];if(ms.includes(m)) ev.push({day:Math.min(p.recDay||1,28),label:p.name,type:'procedure',done:false,src:p})}
+  });
+  // Custom events
+  D.events.forEach(e=>{const d=new Date(e.date);if(d.getFullYear()===y&&d.getMonth()===m) ev.push({day:d.getDate(),label:e.name,type:e.type||'other',done:e.status==='done',src:e})});
+  return ev;
+}
+
+function render(){
+  const MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  document.getElementById('mo-label').textContent=MN[cM]+' '+cY;
+  const fd=new Date(cY,cM,1).getDay(),dim=new Date(cY,cM+1,0).getDate(),pDim=new Date(cY,cM,0).getDate();
+  const evs=getEvents(cY,cM);
+  let h='';
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{h+=`<div class="dh">${d}</div>`});
+  const cells=Math.ceil((fd+dim)/7)*7;
+  for(let i=0;i<cells;i++){
+    const dn=i-fd+1,out=dn<1||dn>dim;
+    const dd=out?(dn<1?pDim+dn:dn-dim):dn;
+    const isT=!out&&dn===NOW.getDate()&&cM===NOW.getMonth()&&cY===NOW.getFullYear();
+    const dayEv=out?[]:evs.filter(e=>e.day===dn);
+    let evH=dayEv.slice(0,3).map(e=>`<div class="ev ${e.type} ${e.done?'done':''}" onclick="event.stopPropagation()" title="${e.label}">${e.label}</div>`).join('');
+    if(dayEv.length>3) evH+=`<div style="font-size:.6rem;color:var(--muted)">+${dayEv.length-3}</div>`;
+    h+=`<div class="dy ${out?'out':''} ${isT?'today':''}" ${!out?`onclick="showDay(${dn})"`:''}>
+      <div class="dn">${dd}</div>${evH}</div>`;
+  }
+  document.getElementById('cg').innerHTML=h;
+  document.getElementById('dd').classList.remove('open');
+  badges();
+}
+
+function showDay(day){
+  const evs=getEvents(cY,cM).filter(e=>e.day===day);
+  const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dd=document.getElementById('dd');
+  if(!evs.length){dd.innerHTML=`<h3>${MN[cM]} ${day} — No items</h3><p style="color:var(--muted);font-size:.85rem">Click "+ Add" to schedule something.</p>`;dd.classList.add('open');return}
+  dd.innerHTML=`<h3>${MN[cM]} ${day}</h3>`+evs.map(e=>`
+    <div class="dd-item">
+      <div class="dd-dot ${e.type}"></div>
+      <div class="dd-info">
+        <div class="nm">${e.label}</div>
+        <div class="desc">${e.type==='filing'?e.src.desc||'':e.type==='training'?(e.src.note||e.src.who||''):e.type==='procedure'?(e.src.freq||''):''}</div>
+      </div>
+      <span class="sb ${e.done?'ok':e.type==='training'&&e.src.status==='gap'?'gap':'pend'}">${e.done?'Done':e.type==='training'&&e.src.status==='gap'?'Gap':'Pending'}</span>
+    </div>`).join('');
+  dd.classList.add('open');
+}
+
+// ═════════════════════════════════════
+//  ADD CALENDAR EVENT
+// ═════════════════════════════════════
+function openAdd(){
+  openM('Add Event',`
+    <label>Name</label><input id="ae-n">
+    <label>Date</label><input id="ae-d" type="date">
+    <label>Type</label><select id="ae-t"><option value="filing">Filing</option><option value="training">Training</option><option value="procedure">Procedure</option><option value="other">Other</option></select>
+    <label>Recurrence</label><select id="ae-r">${recOpts('once')}</select>
+  `,`<button class="btn btn-n" onclick="saveAdd()">Save</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function saveAdd(){
+  const n=document.getElementById('ae-n').value.trim(),d=document.getElementById('ae-d').value;
+  if(!n||!d){alert('Enter name and date.');return}
+  D.events.push({id:'e'+Date.now(),name:n,date:d,type:document.getElementById('ae-t').value,rec:document.getElementById('ae-r').value,status:'pending'});
+  save();render();closeM();
+}
+
+// ═════════════════════════════════════
+//  FILINGS
+// ═════════════════════════════════════
+function renderF(){
+  document.querySelector('#ftbl tbody').innerHTML=D.filings.map(f=>{
+    const sc=f.status==='done'?'ok':'pend';
+    return `<tr>
+      <td><strong>${f.name}</strong><br><small style="color:var(--muted)">${f.desc}</small></td>
+      <td>${f.deadline}</td>
+      <td>${REC_LABELS[f.rec]||f.rec}</td>
+      <td>${f.method}</td>
+      <td><span class="sb ${sc}">${f.status==='done'?'Done':'Pending'}</span>${f.doneDate?`<br><small style="color:var(--muted)">${f.doneDate}</small>`:''}</td>
+      <td style="white-space:nowrap">
+        ${f.status!=='done'?`<button class="btn btn-g" onclick="fDone('${f.id}')">Done</button>`:`<button class="btn btn-o" onclick="fReset('${f.id}')">Reset</button>`}
+        <button class="btn btn-o" onclick="fEdit('${f.id}')">Edit</button>
+        <button class="btn btn-r" onclick="fDel('${f.id}')">Del</button>
+      </td></tr>`}).join('');
+}
+function fDone(id){const f=D.filings.find(x=>x.id===id);if(f){f.status='done';f.doneDate=new Date().toLocaleDateString()}save();renderF();render()}
+function fReset(id){const f=D.filings.find(x=>x.id===id);if(f){f.status='pending';f.doneDate=''}save();renderF();render()}
+function fDel(id){if(!confirm('Delete this filing?'))return;D.filings=D.filings.filter(x=>x.id!==id);save();renderF();render()}
+function fEdit(id){
+  const f=D.filings.find(x=>x.id===id);if(!f)return;
+  openM('Edit: '+f.name,`
+    <label>Name</label><input id="ef-n" value="${f.name}">
+    <label>Deadline</label><input id="ef-dl" value="${f.deadline}">
+    <label>Description</label><input id="ef-ds" value="${f.desc||''}">
+    <label>Method</label><input id="ef-m" value="${f.method}">
+    <label>Recurrence</label><select id="ef-r">${recOpts(f.rec)}</select>
+    <label>Day of Month (for calendar)</label><input id="ef-rd" type="number" min="1" max="31" value="${f.recDay>0?f.recDay:''}">
+  `,`<button class="btn btn-n" onclick="fSave('${id}')">Save</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function fSave(id){
+  const f=D.filings.find(x=>x.id===id);if(!f)return;
+  f.name=document.getElementById('ef-n').value;f.deadline=document.getElementById('ef-dl').value;
+  f.desc=document.getElementById('ef-ds').value;f.method=document.getElementById('ef-m').value;
+  f.rec=document.getElementById('ef-r').value;
+  const rd=parseInt(document.getElementById('ef-rd').value);f.recDay=isNaN(rd)?-1:rd;
+  save();renderF();render();closeM();
+}
+function openAddFiling(){
+  openM('Add Filing',`
+    <label>Name</label><input id="ef-n">
+    <label>Deadline</label><input id="ef-dl" placeholder="e.g. Before Mar 15">
+    <label>Description</label><input id="ef-ds">
+    <label>Method</label><input id="ef-m" placeholder="Mail / Online">
+    <label>Recurrence</label><select id="ef-r">${recOpts('yearly')}</select>
+    <label>Day of Month (for calendar)</label><input id="ef-rd" type="number" min="1" max="31" placeholder="15">
+  `,`<button class="btn btn-n" onclick="fAdd()">Add</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function fAdd(){
+  const n=document.getElementById('ef-n').value.trim();if(!n){alert('Enter a name.');return}
+  const rd=parseInt(document.getElementById('ef-rd').value);
+  D.filings.push({id:'f'+Date.now(),name:n,deadline:document.getElementById('ef-dl').value,rec:document.getElementById('ef-r').value,
+    recDay:isNaN(rd)?-1:rd,recMonths:[],desc:document.getElementById('ef-ds').value,method:document.getElementById('ef-m').value,status:'pending',doneDate:''});
+  save();renderF();render();closeM();
+}
+
+// ═════════════════════════════════════
+//  TRAINING
+// ═════════════════════════════════════
+function renderT(){
+  document.querySelector('#ttbl tbody').innerHTML=D.training.map(t=>{
+    const sc=t.status==='gap'?'gap':'ok';
+    return `<tr>
+      <td><strong>${t.name}</strong>${t.note?`<br><small style="color:var(--muted)">${t.note}</small>`:''}</td>
+      <td>${t.who}</td>
+      <td>${REC_LABELS[t.rec]||t.rec}</td>
+      <td><span class="sb ${sc}">${t.status==='gap'?'GAP':'OK'}</span></td>
+      <td>${t.last||'—'}</td>
+      <td style="white-space:nowrap">
+        ${t.status==='gap'?`<button class="btn btn-g" onclick="tOk('${t.id}')">Complete</button>`:`<button class="btn btn-o" onclick="tGap('${t.id}')">Set Gap</button>`}
+        <button class="btn btn-o" onclick="tEdit('${t.id}')">Edit</button>
+        <button class="btn btn-r" onclick="tDel('${t.id}')">Del</button>
+      </td></tr>`}).join('');
+}
+function tOk(id){const t=D.training.find(x=>x.id===id);if(t){t.status='ok';t.last=new Date().toLocaleDateString()}save();renderT();render()}
+function tGap(id){const t=D.training.find(x=>x.id===id);if(t)t.status='gap';save();renderT();render()}
+function tDel(id){if(!confirm('Delete?'))return;D.training=D.training.filter(x=>x.id!==id);save();renderT();render()}
+function tEdit(id){
+  const t=D.training.find(x=>x.id===id);if(!t)return;
+  openM('Edit: '+t.name,`
+    <label>Name</label><input id="et-n" value="${t.name}">
+    <label>Who</label><input id="et-w" value="${t.who}">
+    <label>Recurrence</label><select id="et-r">${recOpts(t.rec)}</select>
+    <label>Status</label><select id="et-s"><option value="ok"${t.status==='ok'?' selected':''}>OK</option><option value="gap"${t.status==='gap'?' selected':''}>Gap</option></select>
+    <label>Last Completed</label><input id="et-d" type="date" value="${t.last?new Date(t.last).toISOString().slice(0,10):''}">
+    <label>Note</label><input id="et-nt" value="${t.note||''}">
+  `,`<button class="btn btn-n" onclick="tSave('${id}')">Save</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function tSave(id){
+  const t=D.training.find(x=>x.id===id);if(!t)return;
+  t.name=document.getElementById('et-n').value;t.who=document.getElementById('et-w').value;
+  t.rec=document.getElementById('et-r').value;t.status=document.getElementById('et-s').value;
+  const d=document.getElementById('et-d').value;t.last=d?new Date(d).toLocaleDateString():'';
+  t.note=document.getElementById('et-nt').value;
+  save();renderT();render();closeM();
+}
+function openAddTraining(){
+  openM('Add Training',`
+    <label>Name</label><input id="et-n">
+    <label>Who</label><input id="et-w" placeholder="e.g. All field personnel">
+    <label>Recurrence</label><select id="et-r">${recOpts('yearly')}</select>
+    <label>Status</label><select id="et-s"><option value="gap">Gap</option><option value="ok">OK</option></select>
+    <label>Note</label><input id="et-nt">
+  `,`<button class="btn btn-n" onclick="tAdd()">Add</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function tAdd(){
+  const n=document.getElementById('et-n').value.trim();if(!n){alert('Enter a name.');return}
+  D.training.push({id:'t'+Date.now(),name:n,who:document.getElementById('et-w').value,rec:document.getElementById('et-r').value,
+    status:document.getElementById('et-s').value,last:'',note:document.getElementById('et-nt').value});
+  save();renderT();render();closeM();
+}
+
+// ═════════════════════════════════════
+//  PROCEDURES
+// ═════════════════════════════════════
+function renderP(){
+  document.querySelector('#ptbl tbody').innerHTML=D.procedures.map(p=>{
+    const sc=p.status==='gap'?'gap':'ok';
+    const sopHTML=p.sop?`<a class="sop-link" href="${p.sop}" target="_blank">View SOP</a>`:`<span style="color:var(--muted);font-size:.78rem">No SOP linked</span>`;
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.freq}</td>
+      <td>${sopHTML}</td>
+      <td><span class="sb ${sc}">${p.status==='gap'?'GAP':'OK'}</span></td>
+      <td>${p.last||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-g" onclick="pDone('${p.id}')">Log</button>
+        <button class="btn btn-o" onclick="pEdit('${p.id}')">Edit</button>
+        <button class="btn btn-r" onclick="pDel('${p.id}')">Del</button>
+      </td></tr>`}).join('');
+}
+function pDone(id){const p=D.procedures.find(x=>x.id===id);if(p){p.status='ok';p.last=new Date().toLocaleDateString()}save();renderP();render()}
+function pDel(id){if(!confirm('Delete?'))return;D.procedures=D.procedures.filter(x=>x.id!==id);save();renderP();render()}
+function pEdit(id){
+  const p=D.procedures.find(x=>x.id===id);if(!p)return;
+  openM('Edit: '+p.name,`
+    <label>Name</label><input id="ep-n" value="${p.name}">
+    <label>Frequency</label><input id="ep-f" value="${p.freq}">
+    <label>Recurrence</label><select id="ep-r">${recOpts(p.rec)}</select>
+    <label>SOP Link (URL)</label><input id="ep-s" value="${p.sop||''}" placeholder="https://...">
+    <label>Status</label><select id="ep-st"><option value="ok"${p.status==='ok'?' selected':''}>OK</option><option value="gap"${p.status==='gap'?' selected':''}>Gap</option></select>
+    <label>Last Performed</label><input id="ep-d" type="date" value="${p.last?new Date(p.last).toISOString().slice(0,10):''}">
+  `,`<button class="btn btn-n" onclick="pSave('${id}')">Save</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function pSave(id){
+  const p=D.procedures.find(x=>x.id===id);if(!p)return;
+  p.name=document.getElementById('ep-n').value;p.freq=document.getElementById('ep-f').value;
+  p.rec=document.getElementById('ep-r').value;p.sop=document.getElementById('ep-s').value;
+  p.status=document.getElementById('ep-st').value;
+  const d=document.getElementById('ep-d').value;p.last=d?new Date(d).toLocaleDateString():'';
+  save();renderP();render();closeM();
+}
+function openAddProc(){
+  openM('Add Procedure',`
+    <label>Name</label><input id="ep-n">
+    <label>Frequency</label><input id="ep-f" placeholder="e.g. Monthly">
+    <label>Recurrence</label><select id="ep-r">${recOpts('monthly')}</select>
+    <label>SOP Link (URL)</label><input id="ep-s" placeholder="https://...">
+    <label>Status</label><select id="ep-st"><option value="ok">OK</option><option value="gap">Gap</option></select>
+  `,`<button class="btn btn-n" onclick="pAdd()">Add</button><button class="btn btn-o" onclick="closeM()">Cancel</button>`);
+}
+function pAdd(){
+  const n=document.getElementById('ep-n').value.trim();if(!n){alert('Enter a name.');return}
+  D.procedures.push({id:'p'+Date.now(),name:n,freq:document.getElementById('ep-f').value,rec:document.getElementById('ep-r').value,
+    recDay:1,sop:document.getElementById('ep-s').value,status:document.getElementById('ep-st').value,last:''});
+  save();renderP();render();closeM();
+}
+
+// ═════════════════════════════════════
+//  LINKS
+// ═════════════════════════════════════
+const LK=[
+  {g:"Louisiana DNR / Office of Conservation",l:[
+    ["Office of Conservation","https://www.dnr.louisiana.gov/page/office-of-conversation-con-home-page"],
+    ["Dept of Conservation & Energy","https://www.dce.louisiana.gov"],
+    ["All CON Forms","https://www.dnr.louisiana.gov/page/con-forms"],
+    ["Engineering Division Forms","https://www.dnr.louisiana.gov/page/con-forms-engineering-division"],
+    ["Environmental Division Forms","https://www.dnr.louisiana.gov/page/con-forms-environmental-division"],
+    ["Injection & Mining Forms","https://www.dnr.louisiana.gov/page/con-forms-injection-mining-division"]]},
+  {g:"SONRIS",l:[
+    ["SONRIS Data Entry","https://www.dnr.louisiana.gov/page/sonris-data-entry"],
+    ["SONRIS Public DB","https://sonlite.dnr.state.la.us/ords/r/sonris_pub/sonris_public/home"],
+    ["SONRIS GIS Map","https://sonris-gis.dnr.la.gov/gis/agsweb/IE/JSViewer/index.html?TemplateID=181"],
+    ["SONRIS How-To","https://www.dnr.louisiana.gov/page/how-to-access-sonris"]]},
+  {g:"Injection & Mining",l:[
+    ["IMD Main","https://www.dnr.louisiana.gov/index.cfm/page/56"],
+    ["UIC Section","https://www.dnr.louisiana.gov/page/imd-uic-section"],
+    ["Financial Security","https://www.dnr.louisiana.gov/page/financial-security"]]},
+  {g:"Louisiana DEQ",l:[
+    ["LDEQ Home","https://www.deq.louisiana.gov/"],
+    ["E&P Waste","https://www.deq.louisiana.gov/page/exploration-and-production-ep-waste"],
+    ["NORM Regulations","https://www.deq.louisiana.gov/page/radiation"],
+    ["Waste Permits","https://deq.louisiana.gov/page/waste-permits"]]},
+  {g:"OSHA",l:[
+    ["Oil & Gas Extraction","https://www.osha.gov/oil-and-gas-extraction/standards"],
+    ["LOTO 1910.147","https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.147"],
+    ["Respiratory 1910.134","https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.134"],
+    ["Fall Protection 1926.501","https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.501"],
+    ["PPE","https://www.osha.gov/personal-protective-equipment"],
+    ["HazCom","https://www.osha.gov/hazcom"],
+    ["300 Log Forms","https://www.osha.gov/recordkeeping/forms"]]},
+  {g:"Training Providers",l:[
+    ["IADC RigPass","https://iadc.org/accreditation/rigpass/"],
+    ["H2S — Contingency Training (Sulphur, LA)","https://www.contingencytraining.com/h2s-awareness"],
+    ["H2S Online","https://h2sonlinetraining.com/"],
+    ["Veriforce H2S Clear","https://veriforce.com/course/h2s-clear-for-energy"],
+    ["NSC First Aid/CPR","https://www.nsc.org/safety-training/first-aid"],
+    ["AHA CPR","https://cpr.heart.org/en/"]]},
+  {g:"Contacts",l:[
+    ["Office of Conservation: (225) 342-5540","tel:2253425540"],
+    ["Injection/Emergencies: (225) 342-5515","tel:2253425515"],
+    ["SONRIS (Beverly Kahl): (225) 342-3374","tel:2253423374"],
+    ["DNR: dnrinfo@la.gov","mailto:dnrinfo@la.gov"]]},
+];
+function renderL(){document.getElementById('links-c').innerHTML=LK.map(g=>`<div class="lg"><h3>${g.g}</h3>${g.l.map(l=>`<a href="${l[1]}" target="_blank">${l[0]}</a>`).join('')}</div>`).join('')}
+
+// ═════════════════════════════════════
+//  BADGES
+// ═════════════════════════════════════
+function badges(){
+  const gaps=D.training.filter(t=>t.status==='gap').length+D.procedures.filter(p=>p.status==='gap').length;
+  const done=D.filings.filter(f=>f.status==='done').length;
+  const pg=document.getElementById('pill-gaps'),po=document.getElementById('pill-ok');
+  pg.textContent=gaps+' Gaps';pg.style.display=gaps?'':'none';
+  po.textContent=done+' Done';
+}
+
+// ═════════════════════════════════════
+//  INIT
+// ═════════════════════════════════════
+render();renderF();renderT();renderP();renderL();
+</script>
+</body>
+</html>
