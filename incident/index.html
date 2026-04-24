@@ -155,12 +155,12 @@
     </div></div>
 
     <div class="submit-section"><button type="submit" class="btn-submit" id="submitBtn"><span id="btnText">Submit Incident Report</span><div class="spinner" id="btnSpinner"></div></button>
-      <p class="submit-note">A PDF report will be generated, emailed to HSE, and downloaded for your records.</p>
+      <p class="submit-note">A PDF report will be generated, emailed to HSE and to your email, and downloaded for your records.</p>
     </div>
   </form>
 </div>
 
-<div class="overlay" id="successOverlay"><div class="overlay-card"><div class="icon-circle success">&#10003;</div><h3>Report Submitted</h3><p>Your incident report PDF has been emailed to HSE.</p><div class="email-list">jbaustert@njectllc.com (primary)<br>rseymour@swanenergyinc.onmicrosoft.com (CC)</div><p style="font-size:12px;margin-bottom:4px;">Report ID:</p><div class="id-display" id="successId"></div><p style="font-size:12px;color:#999;margin-bottom:16px;">A PDF copy has been downloaded to your device.</p><div><button class="btn-action primary" id="redownloadBtn">&#8681; Download PDF Again</button><button class="btn-action secondary" onclick="resetForm()">Submit Another</button></div></div></div>
+<div class="overlay" id="successOverlay"><div class="overlay-card"><div class="icon-circle success">&#10003;</div><h3>Report Submitted</h3><p>Your incident report PDF has been emailed to HSE and a copy sent to your email.</p><div class="email-list">jbaustert@njectllc.com (primary)<br>rseymour@swanenergyinc.onmicrosoft.com (CC)<br>Your email (copy)</div><p style="font-size:12px;margin-bottom:4px;">Report ID:</p><div class="id-display" id="successId"></div><p style="font-size:12px;color:#999;margin-bottom:16px;">A PDF copy has been downloaded to your device.</p><div><button class="btn-action primary" id="redownloadBtn">&#8681; Download PDF Again</button><button class="btn-action secondary" onclick="resetForm()">Submit Another</button></div></div></div>
 <div class="overlay" id="errorOverlay"><div class="overlay-card"><div class="icon-circle error">&#10007;</div><h3 style="color:var(--red);">Submission Failed</h3><p>There was a problem sending your report. Your data has NOT been lost.</p><p style="font-size:13px;">Check your internet connection and try again. If the problem persists, use the button below to download the PDF and email it manually.</p><div style="margin-top:16px;"><button class="btn-action primary" id="fallbackDownloadBtn">&#8681; Download PDF</button><button class="btn-action secondary" onclick="document.getElementById('errorOverlay').classList.remove('show')">Try Again</button></div></div></div>
 
 <script>
@@ -197,6 +197,8 @@ const facilityName=document.getElementById('facilityField').value||'Unknown Faci
 '</div>'}
 async function sendEmail(contactId){if(!contactId)return;await fetch(GHL_BASE+'/conversations/messages',{method:'POST',headers:{'Authorization':'Bearer proxy','Version':'2021-07-28','Content-Type':'application/json'},body:JSON.stringify({type:'Email',contactId,subject:'HSE INCIDENT REPORT ['+incidentId+'] — '+facilityName+' — '+pdfData.incidentDate,html:buildEmailHtml(),emailFrom:'The Arena Partners <support@thearenapartners.com>'})})}
 await sendEmail(primaryId);await sendEmail(ccId);
+// Send copy to the person who filled out the form
+const reporterEmailVal=(pdfData.email||'').trim();if(reporterEmailVal){const reporterId=await upsertContact(reporterEmailVal,pdfData.reporterName||'Reporter','');if(reporterId){await uploadToContact(pdfFile,reporterId,pdfData.reporterName||'Reporter',facilityName,'Incident Report');await sendEmail(reporterId)}}
 try{if(fileInput&&fileInput.files&&(primaryId||ccId)){for(let i=0;i<Math.min(fileInput.files.length,5);i++){const f=fileInput.files[i];await uploadToContact(f,primaryId||ccId,'HSE Inbox',facilityName,'Incident Evidence')}}}catch(_e){}
 // Download PDF for submitter
 (function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000)})(pdfBlob,pdfFileName);
