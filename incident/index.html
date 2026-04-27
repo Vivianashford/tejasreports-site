@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tejas Reports</title>
+<title>Incident Report Form</title>
 <!-- jsPDF + AutoTable for PDF generation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -75,7 +75,7 @@
 </style>
 </head>
 <body>
-<div class="header-bar"><h1>Incident Report</h1><p>Health, Safety & Environment (HSE)</p></div>
+<div class="header-bar"><h1>Incident Report Form</h1><p>Health, Safety & Environment (HSE)</p></div>
 <div class="form-wrap">
   <div class="urgent-banner"><span>&#9888;</span> All employees involved and witnesses must complete this form and submit to HSE within 48 hours of the incident.</div>
   <div class="id-bar"><span class="id-label">Incident Report ID</span><span class="id-value" id="incidentId"></span></div>
@@ -147,22 +147,18 @@
     </div></div>
 
     <div class="section"><div class="section-header"><div class="num">9</div><h2>Report Delivery</h2></div><div class="section-body">
-      <div class="recipients-info"><p style="font-weight:600;color:var(--navy);margin-bottom:8px;">This report (as a PDF) will be delivered to:</p>
-        <span class="email-tag">jbaustert@njectllc.com</span><span style="font-size:12px;color:var(--gray);margin:0 2px;">primary</span><br>
-        <span class="email-tag" style="margin-top:4px;">rseymour@swanenergyinc.onmicrosoft.com</span><span style="font-size:12px;color:var(--gray);margin:0 2px;">CC</span><br>
-        <span class="email-tag" style="margin-top:4px;">rguerrero@tejasenvironmental.com</span><span style="font-size:12px;color:var(--gray);margin:0 2px;">CC</span><br>
-        <span class="email-tag" style="margin-top:4px;">jean@eng2.ca</span><span style="font-size:12px;color:var(--gray);margin:0 2px;">CC</span>
+      <div class="recipients-info"><p style="color:var(--navy);">This report will be sent to the <strong>Safety Manager</strong> upon submission.</p>
       </div>
       <div class="field"><label>CC Additional Recipients</label><div class="cc-section"><input type="text" id="additionalCC" placeholder="email1@company.com, email2@company.com"><p class="cc-hint">Add backup email addresses separated by commas.</p><p class="cc-error" id="ccError"></p></div></div>
     </div></div>
 
     <div class="submit-section"><button type="submit" class="btn-submit" id="submitBtn"><span id="btnText">Submit Incident Report</span><div class="spinner" id="btnSpinner"></div></button>
-      <p class="submit-note">A PDF report will be generated, emailed to HSE and to your email, and downloaded for your records.</p>
+      <p class="submit-note">A PDF report will be generated, emailed to HSE, and downloaded for your records.</p>
     </div>
   </form>
 </div>
 
-<div class="overlay" id="successOverlay"><div class="overlay-card"><div class="icon-circle success">&#10003;</div><h3>Report Submitted</h3><p>Your incident report PDF has been emailed to HSE and a copy sent to your email.</p><div class="email-list">jbaustert@njectllc.com (primary)<br>rseymour@swanenergyinc.onmicrosoft.com (CC)<br>rguerrero@tejasenvironmental.com (CC)<br>jean@eng2.ca (CC)<br>Your email (copy)</div><p style="font-size:12px;margin-bottom:4px;">Report ID:</p><div class="id-display" id="successId"></div><p style="font-size:12px;color:#999;margin-bottom:16px;">A PDF copy has been downloaded to your device.</p><div><button class="btn-action primary" id="redownloadBtn">&#8681; Download PDF Again</button><button class="btn-action secondary" onclick="resetForm()">Submit Another</button></div></div></div>
+<div class="overlay" id="successOverlay"><div class="overlay-card"><div class="icon-circle success">&#10003;</div><h3>Report Submitted</h3><p>Your incident report PDF has been emailed to HSE.</p><div class="email-list">Safety Manager</div><p style="font-size:12px;margin-bottom:4px;">Report ID:</p><div class="id-display" id="successId"></div><p style="font-size:12px;color:#999;margin-bottom:16px;">A PDF copy has been downloaded to your device.</p><div><button class="btn-action primary" id="redownloadBtn">&#8681; Download PDF Again</button><button class="btn-action secondary" onclick="resetForm()">Submit Another</button></div></div></div>
 <div class="overlay" id="errorOverlay"><div class="overlay-card"><div class="icon-circle error">&#10007;</div><h3 style="color:var(--red);">Submission Failed</h3><p>There was a problem sending your report. Your data has NOT been lost.</p><p style="font-size:13px;">Check your internet connection and try again. If the problem persists, use the button below to download the PDF and email it manually.</p><div style="margin-top:16px;"><button class="btn-action primary" id="fallbackDownloadBtn">&#8681; Download PDF</button><button class="btn-action secondary" onclick="document.getElementById('errorOverlay').classList.remove('show')">Try Again</button></div></div></div>
 
 <script>
@@ -181,7 +177,7 @@ const btn=document.getElementById('submitBtn');const btnText=document.getElement
 try{const pdfData={id:incidentId,timestamp:timestamp,reporterName:document.getElementById('reporterName').value,position:document.getElementById('positionField').value,phone:document.getElementById('phoneField').value,email:document.getElementById('reporterEmail').value,witnesses:document.getElementById('witnessesField').value,types:types,description:document.getElementById('descField').value,incidentDate:document.getElementById('incidentDate').value,incidentTime:document.getElementById('incidentTime').value,facility:document.getElementById('facilityField').value,location:document.getElementById('locationField').value,rootCause:document.getElementById('whyField').value,additional:document.getElementById('additionalField').value,printedName:document.getElementById('printedName').value,dateSigned:document.getElementById('signDate').value,signatureDataUrl:canvas.toDataURL('image/png'),photoCount:(fileInput&&fileInput.files?fileInput.files.length:0),};const pdfDoc=generatePDF(pdfData);const pdfBlob=pdfDoc.output('blob');lastPdfBlob=pdfBlob;const pdfFileName='Incident_Report_'+incidentId+'.pdf';const pdfFile=new File([pdfBlob],pdfFileName,{type:'application/pdf'});
 // NDA-style backend via Worker + GHL proxy
 const WORKER_URL='https://arena-api.jean-475.workers.dev';const GHL_BASE=WORKER_URL+'/api/ghl';async function upsertContact(email,firstName,lastName){const res=await fetch(GHL_BASE+'/contacts/upsert',{method:'POST',headers:{'Authorization':'Bearer proxy','Version':'2021-07-28','Content-Type':'application/json'},body:JSON.stringify({locationId:'LSvdgiiT7ManCRx9CCwE',email,firstName,lastName})});const data=await res.json().catch(()=>({}));return data.contact?.id||''}
-const primaryEmail='jbaustert@njectllc.com';const ccEmail='rseymour@swanenergyinc.onmicrosoft.com';const rgueroEmail='rguerrero@tejasenvironmental.com';const jeanEmail='jean@eng2.ca';const primaryId=await upsertContact(primaryEmail,'HSE','Primary');const ccId=await upsertContact(ccEmail,'HSE','CC');const rgueroId=await upsertContact(rgueroEmail,'Rosa','Guerrero');const jeanId=await upsertContact(jeanEmail,'Jean','Hardy');async function uploadToContact(file,contactId,contactName,companyName,category){const fd=new FormData();fd.append('file',file,file.name||'incident.pdf');fd.append('contactId',contactId);fd.append('contactName',contactName);fd.append('companyName',companyName);fd.append('category',category);const resp=await fetch(WORKER_URL+'/api/upload-to-contact',{method:'POST',body:fd});const j=await resp.json().catch(()=>({}));return j.fileUrl||''}
+const primaryEmail='jbaustert@njectllc.com';const ccEmail='rseymour@swanenergyinc.onmicrosoft.com';const cc2Email='rguerrero@tejasenvironmental.com';const cc3Email='Jean@eng2.ca';const primaryId=await upsertContact(primaryEmail,'HSE','Primary');const ccId=await upsertContact(ccEmail,'HSE','CC');const cc2Id=await upsertContact(cc2Email,'HSE','CC');const cc3Id=await upsertContact(cc3Email,'HSE','CC');async function uploadToContact(file,contactId,contactName,companyName,category){const fd=new FormData();fd.append('file',file,file.name||'incident.pdf');fd.append('contactId',contactId);fd.append('contactName',contactName);fd.append('companyName',companyName);fd.append('category',category);const resp=await fetch(WORKER_URL+'/api/upload-to-contact',{method:'POST',body:fd});const j=await resp.json().catch(()=>({}));return j.fileUrl||''}
 const facilityName=document.getElementById('facilityField').value||'Unknown Facility';const fileUrl=await uploadToContact(pdfFile,primaryId||ccId,'HSE Inbox',facilityName,'Incident Report');function buildEmailHtml(){const safe=s=>(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');return '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;">'+
 '<h2 style="margin:0 0 10px;color:#1B2A4A;">HSE Incident Report</h2>'+
 '<p style="margin:0 0 6px;color:#333;"><strong>ID:</strong> '+safe(incidentId)+'</p>'+
@@ -198,9 +194,7 @@ const facilityName=document.getElementById('facilityField').value||'Unknown Faci
 '<p style="margin:16px 0 0;color:#666;font-size:12px;">Automated by Arena HSE. Reported at '+safe(pdfData.timestamp)+'.</p>'+
 '</div>'}
 async function sendEmail(contactId){if(!contactId)return;await fetch(GHL_BASE+'/conversations/messages',{method:'POST',headers:{'Authorization':'Bearer proxy','Version':'2021-07-28','Content-Type':'application/json'},body:JSON.stringify({type:'Email',contactId,subject:'HSE INCIDENT REPORT ['+incidentId+'] — '+facilityName+' — '+pdfData.incidentDate,html:buildEmailHtml(),emailFrom:'The Arena Partners <support@thearenapartners.com>'})})}
-await sendEmail(primaryId);await sendEmail(ccId);await sendEmail(rgueroId);await sendEmail(jeanId);
-// Send copy to the person who filled out the form
-const reporterEmailVal=(pdfData.email||'').trim();if(reporterEmailVal){const reporterId=await upsertContact(reporterEmailVal,pdfData.reporterName||'Reporter','');if(reporterId){await uploadToContact(pdfFile,reporterId,pdfData.reporterName||'Reporter',facilityName,'Incident Report');await sendEmail(reporterId)}}
+await sendEmail(primaryId);await sendEmail(ccId);await sendEmail(cc2Id);await sendEmail(cc3Id);
 try{if(fileInput&&fileInput.files&&(primaryId||ccId)){for(let i=0;i<Math.min(fileInput.files.length,5);i++){const f=fileInput.files[i];await uploadToContact(f,primaryId||ccId,'HSE Inbox',facilityName,'Incident Evidence')}}}catch(_e){}
 // Download PDF for submitter
 (function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000)})(pdfBlob,pdfFileName);
