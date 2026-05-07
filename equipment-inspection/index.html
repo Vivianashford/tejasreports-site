@@ -483,6 +483,8 @@
         e.preventDefault();
         const form = e.target;
         const data = collectFormData(form);
+        data.inspection_id = generateInspectionId(data.date);
+        data.submitted_at = new Date().toISOString();
         data.photo_count = selectedPhotos.length;
         const submitBtn = document.getElementById("submit-btn");
 
@@ -512,10 +514,11 @@
             downloadBlob(pdfBytes, filename);
 
             const sentTo = [...RECIPIENTS.map(r => r.email), data.operator_email].filter(Boolean);
-            const archiveNote = delivery.fileUrl ? "PDF archived" : "PDF email sent, archive upload needs review";
+            const recordNote = delivery.backend?.recordId ? `Backend record ${delivery.backend.recordId} created` : "Backend record needs review";
+            const archiveNote = delivery.fileUrl || delivery.backend?.pdf?.url ? "PDF archived" : "PDF email sent, archive upload needs review";
             const warningNote = delivery.warnings.length ? ` Warning: ${delivery.warnings.join("; ")}.` : "";
             flash(
-                `Inspection submitted. ${archiveNote} and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
+                `Inspection submitted. ${recordNote}. ${archiveNote} and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
                 `A local copy was downloaded (${filename}).${warningNote}`,
                 delivery.warnings.length ? "info" : "success"
             );
@@ -579,6 +582,11 @@
         doc.setFontSize(16);
         doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
         doc.text("PRE-USE INSPECTION SHEET", W / 2, y, { align: "center" });
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`Record ID: ${d.inspection_id || "Pending"}`, W / 2, y, { align: "center" });
         y += 6;
         doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
         doc.setLineWidth(1.5);
@@ -715,6 +723,27 @@
     }
 
     // ===== Backend delivery via Worker + GHL proxy =====
+
+    function generateInspectionId(dateValue) {
+        const datePart = String(dateValue || new Date().toISOString().slice(0, 10)).replace(/[^0-9]/g, "") || new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const bytes = new Uint8Array(4);
+        if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+        else bytes.forEach((_, i) => bytes[i] = Math.floor(Math.random() * 256));
+        const rand = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+        return `EPI-${datePart}-${rand}`;
+    }
+
+    async function createBackendInspectionRecord(data, pdfFile) {
+        const fd = new FormData();
+        fd.append("inspection", JSON.stringify(data));
+        fd.append("pdf", pdfFile, pdfFile.name || `${data.inspection_id}.pdf`);
+        selectedPhotos.slice(0, 5).forEach(photo => fd.append("photos", photo, photo.name || "inspection-photo"));
+        const res = await fetch(WORKER_URL + "/api/equipment-inspections", { method: "POST", body: fd });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.message || json.error || "Backend inspection record failed");
+        return json;
+    }
+
     async function upsertContact(recipient) {
         const res = await fetch(GHL_BASE + "/contacts/upsert", {
             method: "POST",
@@ -759,7 +788,8 @@
         return `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px;color:#1f2937;">
             <h2 style="margin:0 0 10px;color:#133a6b;">Equipment Pre-Use Inspection</h2>
             <p style="margin:0 0 12px;color:#555;">SOP 1.12 inspection submitted and archived.</p>
-            ${fileUrl ? `<p style="margin:0 0 14px;"><a href="${fileUrl}" style="color:#133a6b;font-weight:bold;">Download the Inspection PDF</a></p>` : ""}
+            ${fileUrl ? `<p style="margin:0 0 8px;"><a href="${fileUrl}" style="color:#133a6b;font-weight:bold;">Download the Inspection PDF</a></p>` : ""}
+            ${data.backend_record_url ? `<p style="margin:0 0 14px;"><a href="${safe(data.backend_record_url)}" style="color:#133a6b;font-weight:bold;">View Backend Record ${safe(data.inspection_id)}</a></p>` : `<p style="margin:0 0 14px;color:#555;"><strong>Record ID:</strong> ${safe(data.inspection_id)}</p>`}
             <div style="margin:12px 0;padding:12px;border-left:3px solid #133a6b;background:#f6f9fc;">
                 <div><strong>Date:</strong> ${safe(data.date)}</div>
                 <div><strong>Shift:</strong> ${safe(data.shift)}</div>
@@ -808,6 +838,17 @@
     }
 
     async function deliverInspection(data, pdfFile, filename) {
+        const warnings = [];
+        let backend = null;
+        try {
+            backend = await createBackendInspectionRecord(data, pdfFile);
+            data.backend_record_id = backend.recordId || data.inspection_id;
+            data.backend_record_url = backend.recordUrl || "";
+        } catch (err) {
+            console.error("Backend inspection record failed:", err);
+            warnings.push("backend record storage failed");
+        }
+
         const deliveryRecipients = [...RECIPIENTS];
         if (data.operator_email) {
             const exists = deliveryRecipients.some(r => String(r.email).toLowerCase() === String(data.operator_email).toLowerCase());
@@ -828,7 +869,6 @@
         const primary = contacts.find(c => c.contactId) || contacts[0];
         if (!primary?.contactId) throw new Error("No recipient contact could be created");
 
-        const warnings = [];
         let fileUrl = "";
         try {
             fileUrl = await uploadToContact(
@@ -840,10 +880,11 @@
             );
         } catch (err) {
             console.error("PDF archive upload failed:", err);
-            warnings.push("PDF archive upload failed");
+            warnings.push("GHL PDF archive upload failed");
         }
+        if (!fileUrl && backend?.pdf?.url) fileUrl = backend.pdf.url;
 
-        // Email is the priority. Do not let archive/photo upload issues block delivery.
+        // Email is the priority. Do not let GHL archive/photo upload issues block delivery.
         for (const c of contacts) {
             await sendInspectionEmail(c.contactId, data, fileUrl);
         }
@@ -863,7 +904,7 @@
             }
         }
 
-        return { contacts, fileUrl, warnings };
+        return { contacts, fileUrl, backend, warnings };
     }
 
     // ===== UI helpers =====
