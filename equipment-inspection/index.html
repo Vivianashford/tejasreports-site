@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Use Inspection Sheet | Tejas Environmental Solutions</title>
+
+    <!-- jsPDF + autotable: client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #eef2f6;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1a1a1a;
+            padding: 24px 12px;
+        }
+
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            padding: 32px 40px 28px;
+        }
+
+        .header { margin-bottom: 18px; }
+        .header-meta {
+            text-align: right;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .header-title {
+            text-align: center;
+            color: #133a6b;
+            font-size: 22px;
+            letter-spacing: 0.06em;
+            margin: 4px 0 8px;
+        }
+        .header-rule {
+            border: 0;
+            border-top: 2px solid #133a6b;
+            margin: 0 0 18px;
+        }
+
+        .flash {
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 14px;
+            font-size: 14px;
+            display: none;
+        }
+        .flash.show { display: block; }
+        .flash-success { background: #e6f4ea; color: #1e6b34; border: 1px solid #b6dcc1; }
+        .flash-error   { background: #fdecea; color: #8a1f15; border: 1px solid #f1b9b3; }
+        .flash-info    { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
+
+        .row {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 200px;
+            min-width: 160px;
+        }
+        .field.grow-2 { flex: 2 1 320px; }
+        .field.full { flex: 1 1 100%; }
+
+        .field > span {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #4b5563;
+            margin-bottom: 4px;
+        }
+
+        .field input,
+        .field textarea {
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #fff;
+        }
+
+        .field input:focus,
+        .field textarea:focus {
+            outline: 2px solid #2563eb;
+            outline-offset: 1px;
+            border-color: #2563eb;
+        }
+
+        fieldset.shift,
+        fieldset.safe-to-operate {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 6px 12px 8px;
+            flex: 1 1 200px;
+            min-width: 160px;
+            margin: 0;
+        }
+        fieldset legend {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #4b5563;
+            padding: 0 4px;
+        }
+        fieldset.safe-to-operate {
+            flex: 1 1 100%;
+            margin-bottom: 12px;
+        }
+
+        .radio {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+            margin-right: 14px;
+        }
+        .helper-text {
+            color: #6b7280;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .inspection-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0 14px;
+            font-size: 14px;
+        }
+        .inspection-table th {
+            background: #133a6b;
+            color: #ffffff;
+            text-align: left;
+            padding: 8px 10px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .inspection-table th.col-mark { text-align: center; width: 60px; }
+        .inspection-table th.col-issue { width: 38%; }
+        .inspection-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .inspection-table tbody tr:nth-child(odd) td { background: #f6f9fc; }
+        .inspection-table td.center { text-align: center; }
+        .inspection-table td input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        textarea { resize: vertical; }
+
+        .actions {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 18px;
+            border: 0;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-primary { background: #133a6b; color: #ffffff; }
+        .btn-primary:hover { background: #0f2c52; }
+        .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-secondary { background: #e5e7eb; color: #1f2937; }
+        .btn-secondary:hover { background: #d1d5db; }
+
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 600px) {
+            .page { padding: 20px 16px; }
+            .header-title { font-size: 18px; }
+            .row { gap: 10px; }
+            .actions { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="header">
+            <div class="header-meta">Tejas Environmental Solutions &nbsp;|&nbsp; SOP 1.12</div>
+            <h1 class="header-title">PRE-USE INSPECTION SHEET</h1>
+            <hr class="header-rule">
+        </header>
+        <div id="flash" class="flash"></div>
+
+        <form id="inspection-form" autocomplete="off">
+
+            <div class="row">
+                <label class="field">
+                    <span>Date</span>
+                    <input type="date" name="date" required>
+                </label>
+                <fieldset class="shift">
+                    <legend>Shift</legend>
+                    <label class="radio"><input type="radio" name="shift" value="Day" required> Day</label>
+                    <label class="radio"><input type="radio" name="shift" value="Night"> Night</label>
+                </fieldset>
+            </div>
+
+            <div class="row">
+                <label class="field grow-2">
+                    <span>Equipment Name / Type</span>
+                    <input type="text" name="equipment" required maxlength="80">
+                </label>
+                <label class="field">
+                    <span>Location / Site</span>
+                    <input type="text" name="location" required maxlength="60">
+                </label>
+            </div>
+
+            <div class="row">
+                <label class="field">
+                    <span>Operator Name</span>
+                    <input type="text" name="operator" required maxlength="60">
+                </label>
+            </div>
+
+            <table class="inspection-table">
+                <thead>
+                    <tr>
+                        <th class="col-item">INSPECTION ITEM</th>
+                        <th class="col-mark">OK</th>
+                        <th class="col-mark">N/A</th>
+                        <th class="col-issue">Issue Noted</th>
+                    </tr>
+                </thead>
+                <tbody id="inspection-rows"><!-- populated by JS --></tbody>
+            </table>
+
+            <fieldset class="safe-to-operate">
+                <legend>Equipment Safe to Operate?</legend>
+                <label class="radio"><input type="radio" name="safe_to_operate" value="YES" required> YES</label>
+                <label class="radio"><input type="radio" name="safe_to_operate" value="NO"> NO</label>
+                <span class="helper-text">If NO, tag Out of Service and notify supervisor.</span>
+            </fieldset>
+
+            <label class="field full">
+                <span>Issues / Abnormal Conditions</span>
+                <textarea name="issues_notes" rows="3" maxlength="600"></textarea>
+            </label>
+
+            <div class="row supervisor-row">
+                <fieldset class="shift">
+                    <legend>Supervisor Notified?</legend>
+                    <label class="radio"><input type="radio" name="supervisor_notified" value="YES" required> YES</label>
+                    <label class="radio"><input type="radio" name="supervisor_notified" value="NO"> NO</label>
+                </fieldset>
+                <label class="field">
+                    <span>Time</span>
+                    <input type="time" name="supervisor_notified_time">
+                </label>
+            </div>
+
+            <div class="row">
+                <label class="field grow-2">
+                    <span>Operator Signature (typed)</span>
+                    <input type="text" name="operator_signature" required maxlength="80" placeholder="Type full name to sign">
+                </label>
+                <label class="field">
+                    <span>Time</span>
+                    <input type="time" name="operator_time" required>
+                </label>
+            </div>
+
+            <div class="row">
+                <label class="field grow-2">
+                    <span>Supervisor Signature (typed, if applicable)</span>
+                    <input type="text" name="supervisor_signature" maxlength="80" placeholder="Type full name to sign">
+                </label>
+                <label class="field">
+                    <span>Time</span>
+                    <input type="time" name="supervisor_time">
+                </label>
+            </div>
+
+            <div class="actions">
+                <button type="reset" class="btn btn-secondary">Clear</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn">Submit &amp; Email Inspection</button>
+            </div>
+        </form>
+
+        <footer class="footer">
+            Tejas Environmental Solutions &nbsp;|&nbsp; SOP 1.12 &nbsp;|&nbsp; Pre-Use Inspection
+        </footer>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- EMAIL / PDF DELIVERY CONFIG -->
+    <!-- Same backend pattern as the Tejas incident form: generate PDF, upload -->
+    <!-- it through the Arena Worker/GHL proxy, then email each recipient a link. -->
+    <!-- ============================================================== -->
+    <script>
+    const WORKER_URL = "https://arena-api.jean-475.workers.dev";
+    const GHL_BASE = WORKER_URL + "/api/ghl";
+
+    // The recipients. Edit this list to change who receives every submission.
+    const RECIPIENTS = [
+        { email: "jbaustert@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
+        { email: "rguerrero@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
+        { email: "rseymour@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
+    ];
+    </script>
+
+    <script>
+    // ===== Inspection Items =====
+    const INSPECTION_ITEMS = [
+        { key: "fluid_levels",  label: "Fluid Levels (oil, hydraulic, coolant)" },
+        { key: "leaks_damage",  label: "Leaks / Damage" },
+        { key: "guards_safety", label: "Guards & Safety Devices" },
+        { key: "hoses_belts",   label: "Hoses / Belts / Cables" },
+        { key: "alarms_estops", label: "Alarms / E-Stops Functional" },
+        { key: "cosmetic",      label: "Cosmetic (seat, paint, etc.)" },
+    ];
+
+    // ===== Initial setup =====
+    document.addEventListener("DOMContentLoaded", () => {
+        // Populate the inspection rows
+        const tbody = document.getElementById("inspection-rows");
+        INSPECTION_ITEMS.forEach(item => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${item.label}</td>
+                <td class="center"><input type="radio" name="status_${item.key}" value="OK"></td>
+                <td class="center"><input type="radio" name="status_${item.key}" value="N/A"></td>
+                <td><input type="text" name="issue_${item.key}" maxlength="120"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Default date = today
+        const today = new Date().toISOString().slice(0, 10);
+        document.querySelector('input[name="date"]').value = today;
+
+        // Wire up the form submit
+        document.getElementById("inspection-form").addEventListener("submit", onSubmit);
+    });
+
+    // ===== Form Submission =====
+    async function onSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = collectFormData(form);
+        const submitBtn = document.getElementById("submit-btn");
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Generating PDF...";
+        flash("Generating PDF...", "info");
+
+        let pdfBytes, filename;
+        try {
+            const result = generatePdf(data);
+            pdfBytes = result.bytes;
+            filename = result.filename;
+        } catch (err) {
+            console.error(err);
+            flash("Could not generate PDF: " + err.message, "error");
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Submit & Email Inspection";
+            return;
+        }
+
+        submitBtn.textContent = "Uploading PDF...";
+        try {
+            const pdfFile = new File([new Blob([pdfBytes], { type: "application/pdf" })], filename, { type: "application/pdf" });
+            await deliverInspection(data, pdfFile, filename);
+
+            // Always download a local copy too — same fail-safe as the incident form.
+            downloadBlob(pdfBytes, filename);
+
+            flash(
+                `Inspection submitted. PDF archived and emailed to: ${RECIPIENTS.map(r => r.email).join(", ")}. ` +
+                `A local copy was downloaded (${filename}).`,
+                "success"
+            );
+            form.reset();
+            document.querySelector('input[name="date"]').value = new Date().toISOString().slice(0, 10);
+        } catch (err) {
+            console.error(err);
+            // If backend delivery fails, still protect the operator by downloading the PDF.
+            downloadBlob(pdfBytes, filename);
+            flash(
+                "PDF was downloaded locally, but the email/upload could not be completed. " +
+                "Error: " + (err && err.text ? err.text : err.message || err),
+                "error"
+            );
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Submit & Email Inspection";
+        }
+    }
+
+    // ===== Form Data =====
+    function collectFormData(form) {
+        const data = {};
+        new FormData(form).forEach((v, k) => { data[k] = (typeof v === "string") ? v.trim() : v; });
+        // Make sure every inspection item has both fields, even if blank
+        INSPECTION_ITEMS.forEach(item => {
+            if (!(`status_${item.key}` in data)) data[`status_${item.key}`] = "";
+            if (!(`issue_${item.key}`  in data)) data[`issue_${item.key}`]  = "";
+        });
+        return data;
+    }
+
+    // ===== PDF Generation (mirrors the SOP 1.12 layout) =====
+    function generatePdf(d) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "pt", format: "letter" });
+
+        const W = doc.internal.pageSize.getWidth();
+        const M = 60;            // page margin
+        const NAVY = [19, 58, 107];
+        const GREY = [156, 163, 175];
+        const TEXT = [26, 26, 26];
+
+        let y = 50;
+
+        // Header meta (top right)
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        doc.text("Tejas Environmental Solutions  |  SOP 1.12   Page 1", W - M, y, { align: "right" });
+        y += 6;
+        doc.setDrawColor(GREY[0], GREY[1], GREY[2]);
+        doc.setLineWidth(0.5);
+        doc.line(M, y, W - M, y);
+        y += 18;
+
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
+        doc.text("PRE-USE INSPECTION SHEET", W / 2, y, { align: "center" });
+        y += 6;
+        doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
+        doc.setLineWidth(1.5);
+        doc.line(M, y, W - M, y);
+        y += 22;
+
+        doc.setTextColor(TEXT[0], TEXT[1], TEXT[2]);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        // Row: Date / Shift
+        const cb = (b) => b ? "[X]" : "[ ]";
+        const dateStr = d.date || "";
+        drawLabelValue(doc, "Date:", dateStr, M, y, 220);
+        const shiftText = `Shift:  ${cb(d.shift === "Day")} Day   ${cb(d.shift === "Night")} Night`;
+        doc.text(shiftText, M + 250, y);
+        y += 22;
+
+        // Row: Equipment / Location
+        drawLabelValue(doc, "Equipment Name / Type:", d.equipment || "", M, y, 250);
+        drawLabelValue(doc, "Location / Site:", d.location || "", M + 290, y, 200);
+        y += 22;
+
+        // Row: Operator
+        drawLabelValue(doc, "Operator Name:", d.operator || "", M, y, W - 2 * M - 100);
+        y += 18;
+
+        // Inspection table via autotable
+        const tableHead = [["INSPECTION ITEM", "OK", "N/A", "Issue Noted"]];
+        const tableBody = INSPECTION_ITEMS.map(item => [
+            item.label,
+            cb(d[`status_${item.key}`] === "OK"),
+            cb(d[`status_${item.key}`] === "N/A"),
+            d[`issue_${item.key}`] || ""
+        ]);
+        doc.autoTable({
+            head: tableHead,
+            body: tableBody,
+            startY: y,
+            margin: { left: M, right: M },
+            theme: "grid",
+            headStyles: {
+                fillColor: NAVY,
+                textColor: 255,
+                fontStyle: "bold",
+                halign: "left",
+            },
+            columnStyles: {
+                0: { cellWidth: 230 },
+                1: { cellWidth: 40, halign: "center" },
+                2: { cellWidth: 40, halign: "center" },
+                3: { cellWidth: "auto" },
+            },
+            alternateRowStyles: { fillColor: [246, 249, 252] },
+            styles: { fontSize: 9.5, cellPadding: 5, textColor: TEXT, lineColor: [203, 213, 225] },
+        });
+        y = doc.lastAutoTable.finalY + 16;
+
+        // Safe to operate
+        const safe = d.safe_to_operate || "";
+        const safeText = `Equipment Safe to Operate?   ${cb(safe === "YES")} YES   ${cb(safe === "NO")} NO  - If NO, tag Out of Service and notify supervisor.`;
+        doc.text(safeText, M, y);
+        y += 18;
+
+        // Issues / Abnormal Conditions
+        doc.text("Issues / Abnormal Conditions:", M, y);
+        y += 14;
+        const issues = (d.issues_notes || "").trim();
+        if (issues) {
+            const lines = doc.splitTextToSize(issues, W - 2 * M);
+            doc.text(lines, M, y);
+            y += lines.length * 12 + 6;
+        } else {
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.line(M, y, W - M, y); y += 14;
+            doc.line(M, y, W - M, y); y += 12;
+        }
+        y += 4;
+
+        // Supervisor Notified
+        const supN = d.supervisor_notified || "";
+        doc.text(`Supervisor Notified?   ${cb(supN === "YES")} YES   ${cb(supN === "NO")} NO`, M, y);
+        drawLabelValue(doc, "Time:", d.supervisor_notified_time || "", M + 320, y, 100);
+        y += 22;
+
+        // Operator Signature + Time
+        drawLabelValue(doc, "Operator Signature:", d.operator_signature || "", M, y, 280);
+        drawLabelValue(doc, "Time:", d.operator_time || "", M + 350, y, 80);
+        y += 22;
+
+        // Supervisor Signature + Time
+        drawLabelValue(doc, "Supervisor Signature:", d.supervisor_signature || "", M, y, 280);
+        drawLabelValue(doc, "Time:", d.supervisor_time || "", M + 350, y, 80);
+        y += 22;
+
+        // Build outputs
+        const arrayBuffer = doc.output("arraybuffer");
+        const bytes = new Uint8Array(arrayBuffer);
+        const base64 = doc.output("datauristring").split(",")[1]; // "data:...;base64,XXX" -> XXX
+
+        const safeEq = (d.equipment || "Equipment").replace(/[^A-Za-z0-9._-]+/g, "_");
+        const filename = `PreUseInspection_${(d.date || "")}_${safeEq}.pdf`;
+
+        return { bytes, base64, filename };
+    }
+
+    function drawLabelValue(doc, label, value, x, y, lineWidth) {
+        doc.text(label, x, y);
+        const labelW = doc.getTextWidth(label) + 4;
+        const valX = x + labelW;
+        doc.text(value, valX, y);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(valX, y + 2, x + lineWidth, y + 2);
+    }
+
+    // ===== Local download =====
+    function downloadBlob(bytes, filename) {
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // ===== Backend delivery via Worker + GHL proxy =====
+    async function upsertContact(recipient) {
+        const res = await fetch(GHL_BASE + "/contacts/upsert", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer proxy",
+                "Version": "2021-07-28",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                locationId: "LSvdgiiT7ManCRx9CCwE",
+                email: recipient.email,
+                firstName: recipient.firstName || "Equipment",
+                lastName: recipient.lastName || "Inspection",
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || data.error || `Contact upsert failed for ${recipient.email}`);
+        return data.contact?.id || "";
+    }
+
+    async function uploadToContact(file, contactId, contactName, companyName, category) {
+        const fd = new FormData();
+        fd.append("file", file, file.name || "inspection.pdf");
+        fd.append("contactId", contactId);
+        fd.append("contactName", contactName);
+        fd.append("companyName", companyName);
+        fd.append("category", category);
+        const resp = await fetch(WORKER_URL + "/api/upload-to-contact", { method: "POST", body: fd });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(json.message || json.error || "PDF upload failed");
+        return json.fileUrl || "";
+    }
+
+    function buildInspectionEmailHtml(data, fileUrl) {
+        const safe = (s) => String(s || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const items = INSPECTION_ITEMS.map(it => {
+            const status = safe(data[`status_${it.key}`] || "(blank)");
+            const issue = safe(data[`issue_${it.key}`] || "");
+            return `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${safe(it.label)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:bold;">${status}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${issue || "-"}</td></tr>`;
+        }).join("");
+
+        return `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px;color:#1f2937;">
+            <h2 style="margin:0 0 10px;color:#133a6b;">Equipment Pre-Use Inspection</h2>
+            <p style="margin:0 0 12px;color:#555;">SOP 1.12 inspection submitted and archived.</p>
+            ${fileUrl ? `<p style="margin:0 0 14px;"><a href="${fileUrl}" style="color:#133a6b;font-weight:bold;">Download the Inspection PDF</a></p>` : ""}
+            <div style="margin:12px 0;padding:12px;border-left:3px solid #133a6b;background:#f6f9fc;">
+                <div><strong>Date:</strong> ${safe(data.date)}</div>
+                <div><strong>Shift:</strong> ${safe(data.shift)}</div>
+                <div><strong>Equipment:</strong> ${safe(data.equipment)}</div>
+                <div><strong>Location/Site:</strong> ${safe(data.location)}</div>
+                <div><strong>Operator:</strong> ${safe(data.operator)}</div>
+                <div><strong>Safe to Operate:</strong> ${safe(data.safe_to_operate)}</div>
+                <div><strong>Supervisor Notified:</strong> ${safe(data.supervisor_notified)}${data.supervisor_notified_time ? " at " + safe(data.supervisor_notified_time) : ""}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;">
+                <thead><tr><th align="left" style="background:#133a6b;color:white;padding:8px;">Inspection Item</th><th align="left" style="background:#133a6b;color:white;padding:8px;">Status</th><th align="left" style="background:#133a6b;color:white;padding:8px;">Issue Noted</th></tr></thead>
+                <tbody>${items}</tbody>
+            </table>
+            <div style="margin-top:12px;padding:12px;background:#fff7ed;border-left:3px solid #b78119;">
+                <strong>Issues / Abnormal Conditions:</strong><br>${safe((data.issues_notes || "").trim() || "None")}
+            </div>
+            <p style="margin:16px 0 0;color:#666;font-size:12px;">Operator Signature: ${safe(data.operator_signature)}${data.operator_time ? " (" + safe(data.operator_time) + ")" : ""}</p>
+            <p style="margin:4px 0 0;color:#666;font-size:12px;">Supervisor Signature: ${safe(data.supervisor_signature || "N/A")}${data.supervisor_time ? " (" + safe(data.supervisor_time) + ")" : ""}</p>
+            <p style="margin:16px 0 0;color:#888;font-size:11px;">Automated by Tejas Reporting.</p>
+        </div>`;
+    }
+
+    async function sendInspectionEmail(contactId, data, fileUrl) {
+        if (!contactId) return;
+        const subject = `PRE-USE INSPECTION — ${data.equipment || "Equipment"} — ${data.date || ""} — Safe: ${data.safe_to_operate || ""}`;
+        const html = buildInspectionEmailHtml(data, fileUrl);
+        const res = await fetch(GHL_BASE + "/conversations/messages", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer proxy",
+                "Version": "2021-07-28",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                type: "Email",
+                contactId,
+                subject,
+                html,
+                emailFrom: "The Arena Partners <support@thearenapartners.com>",
+            }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.message || json.error || "Email send failed");
+    }
+
+    async function deliverInspection(data, pdfFile, filename) {
+        const contacts = [];
+        for (const recipient of RECIPIENTS) {
+            contacts.push({ recipient, contactId: await upsertContact(recipient) });
+        }
+        const primary = contacts.find(c => c.contactId) || contacts[0];
+        if (!primary?.contactId) throw new Error("No recipient contact could be created");
+
+        const fileUrl = await uploadToContact(
+            pdfFile,
+            primary.contactId,
+            "Equipment Inspection Inbox",
+            data.location || "Tejas Environmental Solutions",
+            "Equipment Pre-Use Inspection"
+        );
+
+        for (const c of contacts) {
+            await sendInspectionEmail(c.contactId, data, fileUrl);
+        }
+        return { contacts, fileUrl };
+    }
+
+    // ===== UI helpers =====
+    function flash(msg, kind /* "success" | "error" | "info" */) {
+        const el = document.getElementById("flash");
+        el.className = "flash show flash-" + (kind || "info");
+        el.textContent = msg;
+    }
+    </script>
+</body>
+</html>
