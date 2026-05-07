@@ -168,6 +168,51 @@
 
         textarea { resize: vertical; }
 
+        .photo-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 6px;
+            padding: 14px;
+            background: #f8fafc;
+            cursor: pointer;
+            text-align: center;
+            color: #4b5563;
+            font-size: 14px;
+        }
+        .photo-zone:hover { border-color: #133a6b; background: #f1f5f9; }
+        .photo-zone input { display: none; }
+        .photo-help { color: #6b7280; font-size: 12px; margin-top: 6px; }
+        .photo-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .photo-thumb {
+            position: relative;
+            width: 86px;
+            height: 86px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+        }
+        .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .photo-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            border: 0;
+            border-radius: 999px;
+            width: 22px;
+            height: 22px;
+            background: rgba(138, 31, 21, .9);
+            color: white;
+            cursor: pointer;
+            font-weight: 700;
+            line-height: 22px;
+            padding: 0;
+        }
+
         .actions {
             margin-top: 18px;
             display: flex;
@@ -273,6 +318,16 @@
                 <textarea name="issues_notes" rows="3" maxlength="600"></textarea>
             </label>
 
+            <div class="field full">
+                <span>Photos of Abnormal Conditions</span>
+                <label class="photo-zone">
+                    <input type="file" id="photo-input" accept="image/*" capture="environment" multiple>
+                    Tap to take or attach photos
+                    <div class="photo-help">Use this when damage, leaks, abnormal wear, or unsafe conditions are found. Max 5 photos.</div>
+                </label>
+                <div id="photo-preview" class="photo-preview"></div>
+            </div>
+
             <div class="row supervisor-row">
                 <fieldset class="shift">
                     <legend>Supervisor Notified?</legend>
@@ -346,6 +401,8 @@
         { key: "cosmetic",      label: "Cosmetic (seat, paint, etc.)" },
     ];
 
+    let selectedPhotos = [];
+
     // ===== Initial setup =====
     document.addEventListener("DOMContentLoaded", () => {
         // Populate the inspection rows
@@ -364,16 +421,69 @@
         // Default date = today
         const today = new Date().toISOString().slice(0, 10);
         document.querySelector('input[name="date"]').value = today;
+        initPhotoUpload();
 
         // Wire up the form submit
-        document.getElementById("inspection-form").addEventListener("submit", onSubmit);
+        const form = document.getElementById("inspection-form");
+        form.addEventListener("submit", onSubmit);
+        form.addEventListener("reset", () => {
+            selectedPhotos = [];
+            setTimeout(renderPhotoPreviews, 0);
+        });
     });
+
+
+
+    // ===== Photo Capture / Upload Queue =====
+    function initPhotoUpload() {
+        const input = document.getElementById("photo-input");
+        if (!input) return;
+        input.addEventListener("change", () => {
+            const files = Array.from(input.files || []);
+            for (const file of files) {
+                if (selectedPhotos.length >= 5) break;
+                if (!file.type.startsWith("image/")) continue;
+                if (file.size > 8 * 1024 * 1024) {
+                    flash(`${file.name} is over 8MB and was skipped.`, "error");
+                    continue;
+                }
+                selectedPhotos.push(file);
+            }
+            input.value = "";
+            renderPhotoPreviews();
+        });
+    }
+
+    function renderPhotoPreviews() {
+        const preview = document.getElementById("photo-preview");
+        if (!preview) return;
+        preview.innerHTML = "";
+        selectedPhotos.forEach((file, index) => {
+            const thumb = document.createElement("div");
+            thumb.className = "photo-thumb";
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.onload = () => URL.revokeObjectURL(img.src);
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "photo-remove";
+            remove.textContent = "×";
+            remove.onclick = () => {
+                selectedPhotos.splice(index, 1);
+                renderPhotoPreviews();
+            };
+            thumb.appendChild(img);
+            thumb.appendChild(remove);
+            preview.appendChild(thumb);
+        });
+    }
 
     // ===== Form Submission =====
     async function onSubmit(e) {
         e.preventDefault();
         const form = e.target;
         const data = collectFormData(form);
+        data.photo_count = selectedPhotos.length;
         const submitBtn = document.getElementById("submit-btn");
 
         submitBtn.disabled = true;
@@ -408,6 +518,8 @@
                 "success"
             );
             form.reset();
+            selectedPhotos = [];
+            renderPhotoPreviews();
             document.querySelector('input[name="date"]').value = new Date().toISOString().slice(0, 10);
         } catch (err) {
             console.error(err);
@@ -544,6 +656,10 @@
             doc.line(M, y, W - M, y); y += 14;
             doc.line(M, y, W - M, y); y += 12;
         }
+        if (Number(d.photo_count || 0) > 0) {
+            doc.text(`Abnormal Condition Photos: ${d.photo_count} image(s) archived with this inspection.`, M, y);
+            y += 18;
+        }
         y += 4;
 
         // Supervisor Notified
@@ -659,6 +775,7 @@
             <div style="margin-top:12px;padding:12px;background:#fff7ed;border-left:3px solid #b78119;">
                 <strong>Issues / Abnormal Conditions:</strong><br>${safe((data.issues_notes || "").trim() || "None")}
             </div>
+            ${Number(data.photo_count || 0) > 0 ? `<p style="margin:12px 0 0;color:#555;"><strong>Photos:</strong> ${safe(data.photo_count)} abnormal-condition photo(s) archived with the inspection record.</p>` : ""}
             <p style="margin:16px 0 0;color:#666;font-size:12px;">Operator Signature: ${safe(data.operator_signature)}${data.operator_time ? " (" + safe(data.operator_time) + ")" : ""}</p>
             <p style="margin:4px 0 0;color:#666;font-size:12px;">Supervisor Signature: ${safe(data.supervisor_signature || "N/A")}${data.supervisor_time ? " (" + safe(data.supervisor_time) + ")" : ""}</p>
             <p style="margin:16px 0 0;color:#888;font-size:11px;">Automated by Tejas Reporting.</p>
@@ -716,6 +833,16 @@
             data.location || "Tejas Environmental Solutions",
             "Equipment Pre-Use Inspection"
         );
+
+        for (let i = 0; i < Math.min(selectedPhotos.length, 5); i++) {
+            await uploadToContact(
+                selectedPhotos[i],
+                primary.contactId,
+                "Equipment Inspection Inbox",
+                data.location || "Tejas Environmental Solutions",
+                "Equipment Inspection Photos"
+            );
+        }
 
         for (const c of contacts) {
             await sendInspectionEmail(c.contactId, data, fileUrl);

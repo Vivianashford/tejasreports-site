@@ -15,8 +15,9 @@ This form now uses the same backend pattern as the Incident Report form:
 1. Operator completes the inspection.
 2. Browser generates the SOP-style PDF with jsPDF.
 3. PDF is uploaded through the Arena Worker/GHL proxy.
-4. Each recipient gets an email with the inspection details and PDF download link.
-5. A local PDF copy downloads to the operator's device as a fail-safe.
+4. Any abnormal-condition photos attached by the operator are uploaded to the same inspection contact record.
+5. Each recipient gets an email with the inspection details and PDF download link.
+6. A local PDF copy downloads to the operator's device as a fail-safe.
 
 No EmailJS setup is required.
 
