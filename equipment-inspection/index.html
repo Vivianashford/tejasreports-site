@@ -506,16 +506,18 @@
         submitBtn.textContent = "Uploading PDF...";
         try {
             const pdfFile = new File([new Blob([pdfBytes], { type: "application/pdf" })], filename, { type: "application/pdf" });
-            await deliverInspection(data, pdfFile, filename);
+            const delivery = await deliverInspection(data, pdfFile, filename);
 
             // Always download a local copy too — same fail-safe as the incident form.
             downloadBlob(pdfBytes, filename);
 
             const sentTo = [...RECIPIENTS.map(r => r.email), data.operator_email].filter(Boolean);
+            const archiveNote = delivery.fileUrl ? "PDF archived" : "PDF email sent, archive upload needs review";
+            const warningNote = delivery.warnings.length ? ` Warning: ${delivery.warnings.join("; ")}.` : "";
             flash(
-                `Inspection submitted. PDF archived and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
-                `A local copy was downloaded (${filename}).`,
-                "success"
+                `Inspection submitted. ${archiveNote} and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
+                `A local copy was downloaded (${filename}).${warningNote}`,
+                delivery.warnings.length ? "info" : "success"
             );
             form.reset();
             selectedPhotos = [];
@@ -826,28 +828,42 @@
         const primary = contacts.find(c => c.contactId) || contacts[0];
         if (!primary?.contactId) throw new Error("No recipient contact could be created");
 
-        const fileUrl = await uploadToContact(
-            pdfFile,
-            primary.contactId,
-            "Equipment Inspection Inbox",
-            data.location || "Tejas Environmental Solutions",
-            "Equipment Pre-Use Inspection"
-        );
-
-        for (let i = 0; i < Math.min(selectedPhotos.length, 5); i++) {
-            await uploadToContact(
-                selectedPhotos[i],
+        const warnings = [];
+        let fileUrl = "";
+        try {
+            fileUrl = await uploadToContact(
+                pdfFile,
                 primary.contactId,
                 "Equipment Inspection Inbox",
                 data.location || "Tejas Environmental Solutions",
-                "Equipment Inspection Photos"
+                "Equipment Pre-Use Inspection"
             );
+        } catch (err) {
+            console.error("PDF archive upload failed:", err);
+            warnings.push("PDF archive upload failed");
         }
 
+        // Email is the priority. Do not let archive/photo upload issues block delivery.
         for (const c of contacts) {
             await sendInspectionEmail(c.contactId, data, fileUrl);
         }
-        return { contacts, fileUrl };
+
+        for (let i = 0; i < Math.min(selectedPhotos.length, 5); i++) {
+            try {
+                await uploadToContact(
+                    selectedPhotos[i],
+                    primary.contactId,
+                    "Equipment Inspection Inbox",
+                    data.location || "Tejas Environmental Solutions",
+                    "Equipment Inspection Photos"
+                );
+            } catch (err) {
+                console.error("Inspection photo upload failed:", err);
+                warnings.push(`photo ${i + 1} upload failed`);
+            }
+        }
+
+        return { contacts, fileUrl, warnings };
     }
 
     // ===== UI helpers =====
