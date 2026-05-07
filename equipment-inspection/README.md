@@ -27,8 +27,9 @@ Every submission is emailed to:
 - jbaustert@tejasenvironmental.com
 - rguerrero@tejasenvironmental.com
 - rseymour@tejasenvironmental.com
+- The operator/inspector email entered on the form
 
-To change recipients, edit the `RECIPIENTS` array in `index.html`.
+To change fixed recipients, edit the `RECIPIENTS` array in `index.html`.
 
 ## Backend dependencies
 

@@ -243,6 +243,10 @@
                     <span>Operator Name</span>
                     <input type="text" name="operator" required maxlength="60">
                 </label>
+                <label class="field">
+                    <span>Operator Email</span>
+                    <input type="email" name="operator_email" required maxlength="100" placeholder="name@tejasenvironmental.com">
+                </label>
             </div>
 
             <table class="inspection-table">
@@ -397,8 +401,9 @@
             // Always download a local copy too — same fail-safe as the incident form.
             downloadBlob(pdfBytes, filename);
 
+            const sentTo = [...RECIPIENTS.map(r => r.email), data.operator_email].filter(Boolean);
             flash(
-                `Inspection submitted. PDF archived and emailed to: ${RECIPIENTS.map(r => r.email).join(", ")}. ` +
+                `Inspection submitted. PDF archived and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
                 `A local copy was downloaded (${filename}).`,
                 "success"
             );
@@ -484,7 +489,8 @@
         y += 22;
 
         // Row: Operator
-        drawLabelValue(doc, "Operator Name:", d.operator || "", M, y, W - 2 * M - 100);
+        drawLabelValue(doc, "Operator Name:", d.operator || "", M, y, 250);
+        drawLabelValue(doc, "Operator Email:", d.operator_email || "", M + 290, y, 200);
         y += 18;
 
         // Inspection table via autotable
@@ -642,6 +648,7 @@
                 <div><strong>Equipment:</strong> ${safe(data.equipment)}</div>
                 <div><strong>Location/Site:</strong> ${safe(data.location)}</div>
                 <div><strong>Operator:</strong> ${safe(data.operator)}</div>
+                <div><strong>Operator Email:</strong> ${safe(data.operator_email)}</div>
                 <div><strong>Safe to Operate:</strong> ${safe(data.safe_to_operate)}</div>
                 <div><strong>Supervisor Notified:</strong> ${safe(data.supervisor_notified)}${data.supervisor_notified_time ? " at " + safe(data.supervisor_notified_time) : ""}</div>
             </div>
@@ -682,8 +689,21 @@
     }
 
     async function deliverInspection(data, pdfFile, filename) {
+        const deliveryRecipients = [...RECIPIENTS];
+        if (data.operator_email) {
+            const exists = deliveryRecipients.some(r => String(r.email).toLowerCase() === String(data.operator_email).toLowerCase());
+            if (!exists) {
+                const parts = String(data.operator || "Inspector").trim().split(/\s+/);
+                deliveryRecipients.push({
+                    email: data.operator_email,
+                    firstName: parts[0] || "Inspector",
+                    lastName: parts.slice(1).join(" ") || "Copy",
+                });
+            }
+        }
+
         const contacts = [];
-        for (const recipient of RECIPIENTS) {
+        for (const recipient of deliveryRecipients) {
             contacts.push({ recipient, contactId: await upsertContact(recipient) });
         }
         const primary = contacts.find(c => c.contactId) || contacts[0];
