@@ -374,20 +374,14 @@
     </div>
 
     <!-- ============================================================== -->
-    <!-- EMAIL / PDF DELIVERY CONFIG -->
-    <!-- PDF is archived to the Worker (R2) for audit, then the operator's -->
-    <!-- email client opens with the recipients, subject, and PDF link pre-filled. -->
-    <!-- On mobile (iOS / Android), the native share sheet attaches the actual PDF file. -->
+    <!-- EMAIL / PDF DELIVERY -->
+    <!-- The page posts the PDF to the Worker. The Worker archives it to R2 -->
+    <!-- and auto-emails the three Tejas recipients (plus the operator if -->
+    <!-- they entered an email) via Resend. The PDF is attached to the email. -->
+    <!-- Recipients are hardcoded server-side in worker.js. -->
     <!-- ============================================================== -->
     <script>
     const WORKER_URL = "https://arena-api.jean-475.workers.dev";
-
-    // The recipients. Edit this list to change who receives every submission.
-    const RECIPIENTS = [
-        "jbaustert@tejasenvironmental.com",
-        "rguerrero@tejasenvironmental.com",
-        "rseymour@tejasenvironmental.com",
-    ];
     </script>
 
     <script>
@@ -505,23 +499,29 @@
             return;
         }
 
-        submitBtn.textContent = "Uploading PDF...";
+        submitBtn.textContent = "Submitting...";
         try {
             const pdfFile = new File([new Blob([pdfBytes], { type: "application/pdf" })], filename, { type: "application/pdf" });
-            const delivery = await deliverInspection(data, pdfFile, filename);
+            const backend = await deliverInspection(data, pdfFile, filename);
 
             // Always download a local copy too — same fail-safe as the incident form.
             downloadBlob(pdfBytes, filename);
 
-            const recordNote = delivery.backend?.recordId ? `Archived as ${delivery.backend.recordId}.` : "Archive pending.";
-            const methodNote = delivery.deliveryMethod === "share"
-                ? "Native share opened with the PDF attached."
-                : "Your email client opened with all recipients pre-filled. Tap Send to deliver.";
-            const warningNote = delivery.warnings.length ? ` Note: ${delivery.warnings.join("; ")}.` : "";
+            const recordNote = backend?.recordId ? `Archived as ${backend.recordId}.` : "Archive pending.";
+            const emailInfo = backend?.email || {};
+            const recipients = (emailInfo.recipients || []).join(", ");
+            let emailNote;
+            if (emailInfo.sent) {
+                emailNote = `Email sent to ${recipients}.`;
+            } else if (emailInfo.error) {
+                emailNote = `Email send failed: ${emailInfo.error}.`;
+            } else {
+                emailNote = "Email status unknown.";
+            }
             flash(
-                `Inspection submitted. ${recordNote} ${methodNote} ` +
-                `Recipients: ${delivery.recipients.join(", ")}. A local PDF copy was downloaded (${filename}).${warningNote}`,
-                delivery.warnings.length ? "info" : "success"
+                `Inspection submitted. ${recordNote} ${emailNote} ` +
+                `A local PDF copy was downloaded (${filename}).`,
+                emailInfo.sent ? "success" : "info"
             );
             form.reset();
             selectedPhotos = [];
@@ -532,8 +532,8 @@
             // If backend delivery fails, still protect the operator by downloading the PDF.
             downloadBlob(pdfBytes, filename);
             flash(
-                "PDF was downloaded locally, but the email/upload could not be completed. " +
-                "Error: " + (err && err.text ? err.text : err.message || err),
+                "PDF was downloaded locally, but the submission could not be completed. " +
+                "Error: " + (err && err.message ? err.message : err),
                 "error"
             );
         } finally {
@@ -745,106 +745,11 @@
         return json;
     }
 
-    function buildEmailSubject(data) {
-        return `PRE-USE INSPECTION — ${data.equipment || "Equipment"} — ${data.date || ""} — Safe: ${data.safe_to_operate || ""}`;
-    }
-
-    function buildEmailBody(data, pdfDownloadUrl) {
-        const lines = [];
-        lines.push("Equipment Pre-Use Inspection (SOP 1.12)");
-        lines.push("");
-        lines.push(`Record ID: ${data.inspection_id || ""}`);
-        lines.push(`Date: ${data.date || ""}`);
-        lines.push(`Shift: ${data.shift || ""}`);
-        lines.push(`Equipment: ${data.equipment || ""}`);
-        lines.push(`Location/Site: ${data.location || ""}`);
-        lines.push(`Operator: ${data.operator || ""}`);
-        if (data.operator_email) lines.push(`Operator Email: ${data.operator_email}`);
-        lines.push(`Safe to Operate: ${data.safe_to_operate || ""}`);
-        lines.push(`Supervisor Notified: ${data.supervisor_notified || ""}${data.supervisor_notified_time ? " at " + data.supervisor_notified_time : ""}`);
-        lines.push("");
-        lines.push("Inspection Items:");
-        INSPECTION_ITEMS.forEach(it => {
-            const status = data[`status_${it.key}`] || "(blank)";
-            const issue = data[`issue_${it.key}`] || "";
-            lines.push(`  - ${it.label}: ${status}${issue ? ` — ${issue}` : ""}`);
-        });
-        const issues = (data.issues_notes || "").trim();
-        lines.push("");
-        lines.push(`Issues / Abnormal Conditions: ${issues || "None"}`);
-        if (Number(data.photo_count || 0) > 0) {
-            lines.push(`Photos: ${data.photo_count} abnormal-condition photo(s) archived with this inspection.`);
-        }
-        lines.push("");
-        lines.push(`Operator Signature: ${data.operator_signature || ""}${data.operator_time ? " (" + data.operator_time + ")" : ""}`);
-        lines.push(`Supervisor Signature: ${data.supervisor_signature || "N/A"}${data.supervisor_time ? " (" + data.supervisor_time + ")" : ""}`);
-        if (pdfDownloadUrl) {
-            lines.push("");
-            lines.push(`PDF download: ${pdfDownloadUrl}`);
-        }
-        lines.push("");
-        lines.push("— Sent from Tejas Reporting");
-        return lines.join("\n");
-    }
-
-    function buildRecipientList(data) {
-        const recipients = [...RECIPIENTS];
-        if (data.operator_email) {
-            const lower = data.operator_email.toLowerCase();
-            if (!recipients.some(r => r.toLowerCase() === lower)) recipients.push(data.operator_email);
-        }
-        return recipients;
-    }
-
-    async function tryNativeShare(pdfFile, recipients, subject, body) {
-        if (!navigator.canShare || !navigator.share) return false;
-        const sharePayload = {
-            title: subject,
-            text: `${body}\n\nTo: ${recipients.join(", ")}`,
-            files: [pdfFile],
-        };
-        if (!navigator.canShare(sharePayload)) return false;
-        try {
-            await navigator.share(sharePayload);
-            return true;
-        } catch (err) {
-            if (err && err.name === "AbortError") return false;
-            console.warn("Web Share failed, falling back to mailto:", err);
-            return false;
-        }
-    }
-
-    function openMailto(recipients, subject, body) {
-        const url = `mailto:${recipients.join(",")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = url;
-    }
-
     async function deliverInspection(data, pdfFile, filename) {
-        const warnings = [];
-        let backend = null;
-        try {
-            backend = await createBackendInspectionRecord(data, pdfFile);
-            data.backend_record_id = backend.recordId || data.inspection_id;
-            data.backend_record_url = backend.recordUrl || "";
-        } catch (err) {
-            console.error("Backend inspection record failed:", err);
-            warnings.push("backend archive failed (operator still has local PDF copy)");
-        }
-
-        const pdfDownloadUrl = backend?.pdf?.url || "";
-        const recipients = buildRecipientList(data);
-        const subject = buildEmailSubject(data);
-        const body = buildEmailBody(data, pdfDownloadUrl);
-
-        // Mobile-first: try native share (attaches the actual PDF file).
-        const shared = await tryNativeShare(pdfFile, recipients, subject, body);
-        let deliveryMethod = "share";
-        if (!shared) {
-            openMailto(recipients, subject, body);
-            deliveryMethod = "mailto";
-        }
-
-        return { recipients, pdfDownloadUrl, backend, warnings, deliveryMethod };
+        const backend = await createBackendInspectionRecord(data, pdfFile);
+        data.backend_record_id = backend.recordId || data.inspection_id;
+        data.backend_record_url = backend.recordUrl || "";
+        return backend;
     }
 
     // ===== UI helpers =====
