@@ -375,18 +375,18 @@
 
     <!-- ============================================================== -->
     <!-- EMAIL / PDF DELIVERY CONFIG -->
-    <!-- Same backend pattern as the Tejas incident form: generate PDF, upload -->
-    <!-- it through the Arena Worker/GHL proxy, then email each recipient a link. -->
+    <!-- PDF is archived to the Worker (R2) for audit, then the operator's -->
+    <!-- email client opens with the recipients, subject, and PDF link pre-filled. -->
+    <!-- On mobile (iOS / Android), the native share sheet attaches the actual PDF file. -->
     <!-- ============================================================== -->
     <script>
     const WORKER_URL = "https://arena-api.jean-475.workers.dev";
-    const GHL_BASE = WORKER_URL + "/api/ghl";
 
     // The recipients. Edit this list to change who receives every submission.
     const RECIPIENTS = [
-        { email: "jbaustert@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
-        { email: "rguerrero@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
-        { email: "rseymour@tejasenvironmental.com", firstName: "Equipment", lastName: "Inspection" },
+        "jbaustert@tejasenvironmental.com",
+        "rguerrero@tejasenvironmental.com",
+        "rseymour@tejasenvironmental.com",
     ];
     </script>
 
@@ -513,13 +513,14 @@
             // Always download a local copy too — same fail-safe as the incident form.
             downloadBlob(pdfBytes, filename);
 
-            const sentTo = [...RECIPIENTS.map(r => r.email), data.operator_email].filter(Boolean);
-            const recordNote = delivery.backend?.recordId ? `Backend record ${delivery.backend.recordId} created` : "Backend record needs review";
-            const archiveNote = delivery.fileUrl || delivery.backend?.pdf?.url ? "PDF archived" : "PDF email sent, archive upload needs review";
-            const warningNote = delivery.warnings.length ? ` Warning: ${delivery.warnings.join("; ")}.` : "";
+            const recordNote = delivery.backend?.recordId ? `Archived as ${delivery.backend.recordId}.` : "Archive pending.";
+            const methodNote = delivery.deliveryMethod === "share"
+                ? "Native share opened with the PDF attached."
+                : "Your email client opened with all recipients pre-filled. Tap Send to deliver.";
+            const warningNote = delivery.warnings.length ? ` Note: ${delivery.warnings.join("; ")}.` : "";
             flash(
-                `Inspection submitted. ${recordNote}. ${archiveNote} and emailed to: ${[...new Set(sentTo)].join(", ")}. ` +
-                `A local copy was downloaded (${filename}).${warningNote}`,
+                `Inspection submitted. ${recordNote} ${methodNote} ` +
+                `Recipients: ${delivery.recipients.join(", ")}. A local PDF copy was downloaded (${filename}).${warningNote}`,
                 delivery.warnings.length ? "info" : "success"
             );
             form.reset();
@@ -722,7 +723,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    // ===== Backend delivery via Worker + GHL proxy =====
+    // ===== Backend archive + email handoff =====
 
     function generateInspectionId(dateValue) {
         const datePart = String(dateValue || new Date().toISOString().slice(0, 10)).replace(/[^0-9]/g, "") || new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -744,97 +745,78 @@
         return json;
     }
 
-    async function upsertContact(recipient) {
-        const res = await fetch(GHL_BASE + "/contacts/upsert", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer proxy",
-                "Version": "2021-07-28",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                locationId: "LSvdgiiT7ManCRx9CCwE",
-                email: recipient.email,
-                firstName: recipient.firstName || "Equipment",
-                lastName: recipient.lastName || "Inspection",
-            }),
+    function buildEmailSubject(data) {
+        return `PRE-USE INSPECTION — ${data.equipment || "Equipment"} — ${data.date || ""} — Safe: ${data.safe_to_operate || ""}`;
+    }
+
+    function buildEmailBody(data, pdfDownloadUrl) {
+        const lines = [];
+        lines.push("Equipment Pre-Use Inspection (SOP 1.12)");
+        lines.push("");
+        lines.push(`Record ID: ${data.inspection_id || ""}`);
+        lines.push(`Date: ${data.date || ""}`);
+        lines.push(`Shift: ${data.shift || ""}`);
+        lines.push(`Equipment: ${data.equipment || ""}`);
+        lines.push(`Location/Site: ${data.location || ""}`);
+        lines.push(`Operator: ${data.operator || ""}`);
+        if (data.operator_email) lines.push(`Operator Email: ${data.operator_email}`);
+        lines.push(`Safe to Operate: ${data.safe_to_operate || ""}`);
+        lines.push(`Supervisor Notified: ${data.supervisor_notified || ""}${data.supervisor_notified_time ? " at " + data.supervisor_notified_time : ""}`);
+        lines.push("");
+        lines.push("Inspection Items:");
+        INSPECTION_ITEMS.forEach(it => {
+            const status = data[`status_${it.key}`] || "(blank)";
+            const issue = data[`issue_${it.key}`] || "";
+            lines.push(`  - ${it.label}: ${status}${issue ? ` — ${issue}` : ""}`);
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || data.error || `Contact upsert failed for ${recipient.email}`);
-        return data.contact?.id || "";
+        const issues = (data.issues_notes || "").trim();
+        lines.push("");
+        lines.push(`Issues / Abnormal Conditions: ${issues || "None"}`);
+        if (Number(data.photo_count || 0) > 0) {
+            lines.push(`Photos: ${data.photo_count} abnormal-condition photo(s) archived with this inspection.`);
+        }
+        lines.push("");
+        lines.push(`Operator Signature: ${data.operator_signature || ""}${data.operator_time ? " (" + data.operator_time + ")" : ""}`);
+        lines.push(`Supervisor Signature: ${data.supervisor_signature || "N/A"}${data.supervisor_time ? " (" + data.supervisor_time + ")" : ""}`);
+        if (pdfDownloadUrl) {
+            lines.push("");
+            lines.push(`PDF download: ${pdfDownloadUrl}`);
+        }
+        lines.push("");
+        lines.push("— Sent from Tejas Reporting");
+        return lines.join("\n");
     }
 
-    async function uploadToContact(file, contactId, contactName, companyName, category) {
-        const fd = new FormData();
-        fd.append("file", file, file.name || "inspection.pdf");
-        fd.append("contactId", contactId);
-        fd.append("contactName", contactName);
-        fd.append("companyName", companyName);
-        fd.append("category", category);
-        const resp = await fetch(WORKER_URL + "/api/upload-to-contact", { method: "POST", body: fd });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(json.message || json.error || "PDF upload failed");
-        return json.fileUrl || "";
+    function buildRecipientList(data) {
+        const recipients = [...RECIPIENTS];
+        if (data.operator_email) {
+            const lower = data.operator_email.toLowerCase();
+            if (!recipients.some(r => r.toLowerCase() === lower)) recipients.push(data.operator_email);
+        }
+        return recipients;
     }
 
-    function buildInspectionEmailHtml(data, fileUrl) {
-        const safe = (s) => String(s || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const items = INSPECTION_ITEMS.map(it => {
-            const status = safe(data[`status_${it.key}`] || "(blank)");
-            const issue = safe(data[`issue_${it.key}`] || "");
-            return `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${safe(it.label)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:bold;">${status}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${issue || "-"}</td></tr>`;
-        }).join("");
-
-        return `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px;color:#1f2937;">
-            <h2 style="margin:0 0 10px;color:#133a6b;">Equipment Pre-Use Inspection</h2>
-            <p style="margin:0 0 12px;color:#555;">SOP 1.12 inspection submitted and archived.</p>
-            ${fileUrl ? `<p style="margin:0 0 8px;"><a href="${fileUrl}" style="color:#133a6b;font-weight:bold;">Download the Inspection PDF</a></p>` : ""}
-            ${data.backend_record_url ? `<p style="margin:0 0 14px;"><a href="${safe(data.backend_record_url)}" style="color:#133a6b;font-weight:bold;">View Backend Record ${safe(data.inspection_id)}</a></p>` : `<p style="margin:0 0 14px;color:#555;"><strong>Record ID:</strong> ${safe(data.inspection_id)}</p>`}
-            <div style="margin:12px 0;padding:12px;border-left:3px solid #133a6b;background:#f6f9fc;">
-                <div><strong>Date:</strong> ${safe(data.date)}</div>
-                <div><strong>Shift:</strong> ${safe(data.shift)}</div>
-                <div><strong>Equipment:</strong> ${safe(data.equipment)}</div>
-                <div><strong>Location/Site:</strong> ${safe(data.location)}</div>
-                <div><strong>Operator:</strong> ${safe(data.operator)}</div>
-                <div><strong>Operator Email:</strong> ${safe(data.operator_email)}</div>
-                <div><strong>Safe to Operate:</strong> ${safe(data.safe_to_operate)}</div>
-                <div><strong>Supervisor Notified:</strong> ${safe(data.supervisor_notified)}${data.supervisor_notified_time ? " at " + safe(data.supervisor_notified_time) : ""}</div>
-            </div>
-            <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;">
-                <thead><tr><th align="left" style="background:#133a6b;color:white;padding:8px;">Inspection Item</th><th align="left" style="background:#133a6b;color:white;padding:8px;">Status</th><th align="left" style="background:#133a6b;color:white;padding:8px;">Issue Noted</th></tr></thead>
-                <tbody>${items}</tbody>
-            </table>
-            <div style="margin-top:12px;padding:12px;background:#fff7ed;border-left:3px solid #b78119;">
-                <strong>Issues / Abnormal Conditions:</strong><br>${safe((data.issues_notes || "").trim() || "None")}
-            </div>
-            ${Number(data.photo_count || 0) > 0 ? `<p style="margin:12px 0 0;color:#555;"><strong>Photos:</strong> ${safe(data.photo_count)} abnormal-condition photo(s) archived with the inspection record.</p>` : ""}
-            <p style="margin:16px 0 0;color:#666;font-size:12px;">Operator Signature: ${safe(data.operator_signature)}${data.operator_time ? " (" + safe(data.operator_time) + ")" : ""}</p>
-            <p style="margin:4px 0 0;color:#666;font-size:12px;">Supervisor Signature: ${safe(data.supervisor_signature || "N/A")}${data.supervisor_time ? " (" + safe(data.supervisor_time) + ")" : ""}</p>
-            <p style="margin:16px 0 0;color:#888;font-size:11px;">Automated by Tejas Reporting.</p>
-        </div>`;
+    async function tryNativeShare(pdfFile, recipients, subject, body) {
+        if (!navigator.canShare || !navigator.share) return false;
+        const sharePayload = {
+            title: subject,
+            text: `${body}\n\nTo: ${recipients.join(", ")}`,
+            files: [pdfFile],
+        };
+        if (!navigator.canShare(sharePayload)) return false;
+        try {
+            await navigator.share(sharePayload);
+            return true;
+        } catch (err) {
+            if (err && err.name === "AbortError") return false;
+            console.warn("Web Share failed, falling back to mailto:", err);
+            return false;
+        }
     }
 
-    async function sendInspectionEmail(contactId, data, fileUrl) {
-        if (!contactId) return;
-        const subject = `PRE-USE INSPECTION — ${data.equipment || "Equipment"} — ${data.date || ""} — Safe: ${data.safe_to_operate || ""}`;
-        const html = buildInspectionEmailHtml(data, fileUrl);
-        const res = await fetch(GHL_BASE + "/conversations/messages", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer proxy",
-                "Version": "2021-07-28",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                type: "Email",
-                contactId,
-                subject,
-                html,
-                emailFrom: "The Arena Partners <support@thearenapartners.com>",
-            }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json.message || json.error || "Email send failed");
+    function openMailto(recipients, subject, body) {
+        const url = `mailto:${recipients.join(",")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = url;
     }
 
     async function deliverInspection(data, pdfFile, filename) {
@@ -846,65 +828,23 @@
             data.backend_record_url = backend.recordUrl || "";
         } catch (err) {
             console.error("Backend inspection record failed:", err);
-            warnings.push("backend record storage failed");
+            warnings.push("backend archive failed (operator still has local PDF copy)");
         }
 
-        const deliveryRecipients = [...RECIPIENTS];
-        if (data.operator_email) {
-            const exists = deliveryRecipients.some(r => String(r.email).toLowerCase() === String(data.operator_email).toLowerCase());
-            if (!exists) {
-                const parts = String(data.operator || "Inspector").trim().split(/\s+/);
-                deliveryRecipients.push({
-                    email: data.operator_email,
-                    firstName: parts[0] || "Inspector",
-                    lastName: parts.slice(1).join(" ") || "Copy",
-                });
-            }
+        const pdfDownloadUrl = backend?.pdf?.url || "";
+        const recipients = buildRecipientList(data);
+        const subject = buildEmailSubject(data);
+        const body = buildEmailBody(data, pdfDownloadUrl);
+
+        // Mobile-first: try native share (attaches the actual PDF file).
+        const shared = await tryNativeShare(pdfFile, recipients, subject, body);
+        let deliveryMethod = "share";
+        if (!shared) {
+            openMailto(recipients, subject, body);
+            deliveryMethod = "mailto";
         }
 
-        const contacts = [];
-        for (const recipient of deliveryRecipients) {
-            contacts.push({ recipient, contactId: await upsertContact(recipient) });
-        }
-        const primary = contacts.find(c => c.contactId) || contacts[0];
-        if (!primary?.contactId) throw new Error("No recipient contact could be created");
-
-        let fileUrl = "";
-        try {
-            fileUrl = await uploadToContact(
-                pdfFile,
-                primary.contactId,
-                "Equipment Inspection Inbox",
-                data.location || "Tejas Environmental Solutions",
-                "Equipment Pre-Use Inspection"
-            );
-        } catch (err) {
-            console.error("PDF archive upload failed:", err);
-            warnings.push("GHL PDF archive upload failed");
-        }
-        if (!fileUrl && backend?.pdf?.url) fileUrl = backend.pdf.url;
-
-        // Email is the priority. Do not let GHL archive/photo upload issues block delivery.
-        for (const c of contacts) {
-            await sendInspectionEmail(c.contactId, data, fileUrl);
-        }
-
-        for (let i = 0; i < Math.min(selectedPhotos.length, 5); i++) {
-            try {
-                await uploadToContact(
-                    selectedPhotos[i],
-                    primary.contactId,
-                    "Equipment Inspection Inbox",
-                    data.location || "Tejas Environmental Solutions",
-                    "Equipment Inspection Photos"
-                );
-            } catch (err) {
-                console.error("Inspection photo upload failed:", err);
-                warnings.push(`photo ${i + 1} upload failed`);
-            }
-        }
-
-        return { contacts, fileUrl, backend, warnings };
+        return { recipients, pdfDownloadUrl, backend, warnings, deliveryMethod };
     }
 
     // ===== UI helpers =====
