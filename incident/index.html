@@ -184,27 +184,19 @@ sectionHeader('1. WHO WAS INVOLVED');doc.autoTable({startY:y,margin:{left:margin
 const form=document.getElementById('incidentForm');form.addEventListener('submit',async function(e){e.preventDefault();const types=getSelectedTypes();if(!types){alert('Please select at least one Incident Type.');document.getElementById('chipGroup').scrollIntoView({behavior:'smooth',block:'center'});return}if(!hasSig){alert('Please provide your signature before submitting.');document.getElementById('sigWrap').scrollIntoView({behavior:'smooth',block:'center'});return}const ccInput=document.getElementById('additionalCC').value||'';const ccResult=validateEmails(ccInput);const ccErrorEl=document.getElementById('ccError');if(!ccResult.valid){ccErrorEl.style.display='block';ccErrorEl.textContent='Invalid email(s): '+ccResult.invalid.join(', ');document.getElementById('additionalCC').scrollIntoView({behavior:'smooth',block:'center'});return}ccErrorEl.style.display='none';const now=new Date();const timestamp=now.toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});document.getElementById('hiddenTimestamp').value=now.toISOString();
 const btn=document.getElementById('submitBtn');const btnText=document.getElementById('btnText');const spinner=document.getElementById('btnSpinner');btn.disabled=true;btnText.textContent='Generating PDF & Sending...';spinner.style.display='block';
 try{const pdfData={id:incidentId,timestamp:timestamp,reporterName:document.getElementById('reporterName').value,position:document.getElementById('positionField').value,phone:document.getElementById('phoneField').value,email:document.getElementById('reporterEmail').value,witnesses:document.getElementById('witnessesField').value,truckNumber:document.getElementById('truckNumber').value,driverName:document.getElementById('driverName').value,companyName:document.getElementById('companyName').value,types:types,description:document.getElementById('descField').value,incidentDate:document.getElementById('incidentDate').value,incidentTime:document.getElementById('incidentTime').value,facility:document.getElementById('facilityField').value,location:document.getElementById('locationField').value,rootCause:document.getElementById('whyField').value,additional:document.getElementById('additionalField').value,printedName:document.getElementById('printedName').value,dateSigned:document.getElementById('signDate').value,signatureDataUrl:canvas.toDataURL('image/png'),photoCount:(fileInput&&fileInput.files?fileInput.files.length:0),};const pdfDoc=generatePDF(pdfData);const pdfBlob=pdfDoc.output('blob');lastPdfBlob=pdfBlob;const pdfFileName='Incident_Report_'+incidentId+'.pdf';const pdfFile=new File([pdfBlob],pdfFileName,{type:'application/pdf'});
-// NDA-style backend via Worker + GHL proxy
-const WORKER_URL='https://arena-api.jean-475.workers.dev';const GHL_BASE=WORKER_URL+'/api/ghl';async function upsertContact(email,firstName,lastName){const res=await fetch(GHL_BASE+'/contacts/upsert',{method:'POST',headers:{'Authorization':'Bearer proxy','Version':'2021-07-28','Content-Type':'application/json'},body:JSON.stringify({locationId:'LSvdgiiT7ManCRx9CCwE',email,firstName,lastName})});const data=await res.json().catch(()=>({}));return data.contact?.id||''}
-const primaryEmail='jbaustert@njectllc.com';const ccEmail='rseymour@swanenergyinc.onmicrosoft.com';const cc2Email='rguerrero@tejasenvironmental.com';const cc3Email='Jean@eng2.ca';const primaryId=await upsertContact(primaryEmail,'HSE','Primary');const ccId=await upsertContact(ccEmail,'HSE','CC');const cc2Id=await upsertContact(cc2Email,'HSE','CC');const cc3Id=await upsertContact(cc3Email,'HSE','CC');async function uploadToContact(file,contactId,contactName,companyName,category){const fd=new FormData();fd.append('file',file,file.name||'incident.pdf');fd.append('contactId',contactId);fd.append('contactName',contactName);fd.append('companyName',companyName);fd.append('category',category);const resp=await fetch(WORKER_URL+'/api/upload-to-contact',{method:'POST',body:fd});const j=await resp.json().catch(()=>({}));return j.fileUrl||''}
-const facilityName=document.getElementById('facilityField').value||'Unknown Facility';const fileUrl=await uploadToContact(pdfFile,primaryId||ccId,'HSE Inbox',facilityName,'Incident Report');function buildEmailHtml(){const safe=s=>(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');return '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;">'+
-'<h2 style="margin:0 0 10px;color:#1B2A4A;">HSE Incident Report</h2>'+
-'<p style="margin:0 0 6px;color:#333;"><strong>ID:</strong> '+safe(incidentId)+'</p>'+
-'<p style="margin:0 0 6px;color:#333;"><strong>Facility:</strong> '+safe(facilityName)+'</p>'+
-'<p style="margin:0 0 6px;color:#333;"><strong>Date/Time:</strong> '+safe(pdfData.incidentDate)+' '+safe(pdfData.incidentTime)+'</p>'+
-'<p style="margin:12px 0 6px;color:#333;">A signed PDF report has been generated and archived.</p>'+
-(fileUrl?'<p style="margin:0 0 12px;"><a href="'+fileUrl+'" style="color:#2E75B6;font-weight:bold;">Download the Incident Report (PDF)</a></p>':'')+
-'<div style="margin-top:12px;padding:12px;border-left:3px solid #2E75B6;background:#F7F8FA;">'+
-'<div style="font-size:12px;color:#555;">Types: '+safe(pdfData.types)+'</div>'+
-'<div style="font-size:12px;color:#555;">Reporter: '+safe(pdfData.reporterName)+' ('+safe(pdfData.email)+')</div>'+
-'<div style="font-size:12px;color:#555;">Position: '+safe(pdfData.position)+'</div>'+
-'<div style="font-size:12px;color:#555;">Phone: '+safe(pdfData.phone)+'</div>'+
-'</div>'+
-'<p style="margin:16px 0 0;color:#666;font-size:12px;">Automated by Arena HSE. Reported at '+safe(pdfData.timestamp)+'.</p>'+
-'</div>'}
-async function sendEmail(contactId){if(!contactId)return;await fetch(GHL_BASE+'/conversations/messages',{method:'POST',headers:{'Authorization':'Bearer proxy','Version':'2021-07-28','Content-Type':'application/json'},body:JSON.stringify({type:'Email',contactId,subject:'HSE INCIDENT REPORT ['+incidentId+'] — '+facilityName+' — '+pdfData.incidentDate,html:buildEmailHtml(),emailFrom:'The Arena Partners <support@thearenapartners.com>'})})}
-await sendEmail(primaryId);await sendEmail(ccId);await sendEmail(cc2Id);await sendEmail(cc3Id);
-try{if(fileInput&&fileInput.files&&(primaryId||ccId)){for(let i=0;i<Math.min(fileInput.files.length,5);i++){const f=fileInput.files[i];await uploadToContact(f,primaryId||ccId,'HSE Inbox',facilityName,'Incident Evidence')}}}catch(_e){}
+// Tejas HSE backend via Worker + Resend. Single POST archives PDF + photos to R2 and emails the HSE recipients.
+const WORKER_URL='https://arena-api.jean-475.workers.dev';
+const facilityName=document.getElementById('facilityField').value||'Unknown Facility';
+const incidentPayload={...pdfData,submitted_at:new Date().toISOString(),additionalCC:ccInput};
+const fd=new FormData();
+fd.append('incident',JSON.stringify(incidentPayload));
+fd.append('pdf',pdfFile,pdfFile.name||'incident.pdf');
+fd.append('cc',ccInput||'');
+if(fileInput&&fileInput.files){for(let i=0;i<Math.min(fileInput.files.length,5);i++){fd.append('photos',fileInput.files[i],fileInput.files[i].name||'evidence-'+(i+1))}}
+const resp=await fetch(WORKER_URL+'/api/incident-reports',{method:'POST',body:fd});
+const respJson=await resp.json().catch(()=>({}));
+if(!resp.ok||respJson.success===false){throw new Error(respJson.error||respJson.message||('HTTP '+resp.status))}
+if(respJson.email&&respJson.email.sent===false){console.warn('Incident email send failed:',respJson.email)}
 // Download PDF for submitter
 (function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000)})(pdfBlob,pdfFileName);
 // Success UI

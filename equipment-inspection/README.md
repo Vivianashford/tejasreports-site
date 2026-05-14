@@ -28,11 +28,11 @@ Pure-HTML email handoff. No third-party email service or CRM.
 Every submission is emailed to:
 
 - jbaustert@tejasenvironmental.com  (Jessica Baustert)
-- rguerrero@tejasenvironmental.com  (Guerrero)
+- rguerrero@tejasenvironmental.com  (Bobby Guerrero)
 - rseymour@tejasenvironmental.com  (Reneé Seymour)
 - The operator/inspector email entered on the form (added as a 4th recipient if filled)
 
-To change recipients, edit the `RECIPIENTS` array in `index.html`.
+To change recipients, edit the `EQUIPMENT_INSPECTION_RECIPIENTS` array in `arena-portal/worker.js` and redeploy with `npx wrangler deploy`.
 
 ## Backend dependencies
 
